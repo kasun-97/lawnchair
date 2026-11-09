@@ -26,6 +26,8 @@ import app.lawnchair.ui.preferences.components.colorpreference.ColorSelection
 import app.lawnchair.ui.preferences.components.search.SearchProviderId
 import app.lawnchair.ui.preferences.components.search.SearchProviderPreferenceScreen
 import app.lawnchair.ui.preferences.destinations.AppDrawerFoldersPreference
+import app.lawnchair.ui.preferences.destinations.DrawerTabEditorPreferences
+import app.lawnchair.ui.preferences.destinations.DrawerTabsPreferences
 import app.lawnchair.ui.preferences.destinations.AppDrawerPreferences
 import app.lawnchair.ui.preferences.destinations.BackupAndRestorePreference
 import app.lawnchair.ui.preferences.destinations.CustomIconShapePreference
@@ -176,6 +178,12 @@ fun PreferenceNavigation(
         composable<AppDrawerFolder>(
             deepLinks = getDeepLink(AppDrawerFolder),
         ) { AppDrawerFoldersPreference() }
+        composable<AppDrawerTabs>(
+            deepLinks = getDeepLink(AppDrawerTabs),
+        ) { DrawerTabsPreferences() }
+        composable<AppDrawerTabEditor> { backStackEntry ->
+            DrawerTabEditorPreferences(backStackEntry.toRoute<AppDrawerTabEditor>().id)
+        }
 
         composable<Search>(
             deepLinks = getDeepLink(Search()),

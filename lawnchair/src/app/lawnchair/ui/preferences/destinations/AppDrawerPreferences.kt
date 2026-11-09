@@ -83,6 +83,7 @@ fun AppDrawerPreferences(
         }
         val hiddenApps = prefs2.hiddenApps.getAdapter().state.value
         PreferenceGroup(heading = stringResource(id = R.string.general_label)) {
+            DrawerTabsPreferenceItem()
             NavigationActionPreference(
                 label = stringResource(id = R.string.hidden_apps_label),
                 destination = AppDrawerHiddenApps,
