@@ -48,6 +48,25 @@ class LawnchairAlphabeticalAppsList<T>(
     private val folderList = mutableListOf<FolderEntry>()
     private val filteredList = mutableListOf<AppInfo>()
 
+    /** True for a user-defined drawer tab: plain A-Z list, no drawer folders or categories. */
+    @JvmField
+    var isCustomTab: Boolean = false
+
+    private var disposed = false
+
+    /** Stops this list from reacting to app updates. Used when a drawer tab is removed. */
+    fun dispose() {
+        if (disposed) return
+        disposed = true
+        appsStore.removeUpdateListener(this)
+        context.launcher.deviceProfile.inv.removeOnChangeListener(this)
+    }
+
+    override fun onAppsUpdated() {
+        if (disposed) return
+        super.onAppsUpdated()
+    }
+
     init {
         context.launcher.deviceProfile.inv.addOnChangeListener(this)
         (context as? LifecycleOwner)?.lifecycle?.addObserver(this)
@@ -92,7 +111,7 @@ class LawnchairAlphabeticalAppsList<T>(
         var position = startPosition
 
         // Show app drawer folders only on main profile, to prevent state complexity
-        if (isWorkOrPrivateSpace(appList)) return super.addAppsWithSections(appList, position)
+        if (isCustomTab || isWorkOrPrivateSpace(appList)) return super.addAppsWithSections(appList, position)
 
         if (!drawerListDefault) {
             val validApps = appList.mapNotNull { it }

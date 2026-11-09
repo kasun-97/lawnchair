@@ -142,6 +142,26 @@
     <string name="caddy">Caddy</string>
 
     <string name="app_drawer_folder">App drawer folders</string>
+
+    <!-- Drawer tabs -->
+    <string name="drawer_tabs_label">Tabs</string>
+    <string name="drawer_tabs_description">Group apps into swipeable tabs</string>
+    <string name="drawer_tabs_enable">Show tabs in app drawer</string>
+    <string name="drawer_tabs_all_default_title">All</string>
+    <string name="drawer_tabs_all_title_label">"All apps" tab title</string>
+    <string name="drawer_tabs_custom_label">Custom tabs</string>
+    <string name="drawer_tabs_add">Add tab</string>
+    <string name="drawer_tabs_new">New tab</string>
+    <string name="drawer_tabs_edit">Edit tab</string>
+    <string name="drawer_tabs_title_hint">Tab title</string>
+    <string name="drawer_tabs_hide_from_all">Hide these apps from "All"</string>
+    <string name="drawer_tabs_manage_apps">Choose apps</string>
+    <string name="drawer_tabs_delete">Delete tab</string>
+    <string name="drawer_tabs_empty">No tabs yet. Add one, then choose its apps.</string>
+    <plurals name="drawer_tabs_app_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
     <string name="selected_apps">Selected apps</string>
     <string name="add_apps">Add apps</string>
     <string name="app_drawer_folder_settings">App drawer folder</string>

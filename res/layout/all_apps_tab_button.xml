@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Lawnchair: a single all-apps tab button, created in code for drawer tabs. -->
+<Button xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="0dp"
+    android:layout_height="match_parent"
+    android:layout_weight="1"
+    android:background="@drawable/all_apps_tabs_background"
+    android:ellipsize="end"
+    android:maxLines="1"
+    android:textColor="@color/all_apps_tab_text"
+    android:textSize="14sp"
+    style="@style/AllAppsPersonalWorkTabStyle" />

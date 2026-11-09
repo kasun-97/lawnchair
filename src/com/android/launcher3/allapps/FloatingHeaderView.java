@@ -92,6 +92,12 @@ public class FloatingHeaderView extends LinearLayout implements
     private final int mTabsAdditionalPaddingBottom;
 
     protected PersonalWorkSlidingTabStrip mTabLayout;
+    // Lawnchair: the header child that holds the tabs (a HorizontalScrollView wrapping
+    // mTabLayout). Translation, visibility and position apply to this view.
+    private View mTabContainer;
+    // Lawnchair: recycler views of custom drawer tabs, keyed by adapter holder type.
+    private final android.util.SparseArray<AllAppsRecyclerView> mCustomRVs =
+            new android.util.SparseArray<>();
     private AllAppsRecyclerView mMainRV;
     private AllAppsRecyclerView mWorkRV;
     private SearchRecyclerView mSearchRV;
@@ -140,6 +146,8 @@ public class FloatingHeaderView extends LinearLayout implements
     protected void onFinishInflate() {
         super.onFinishInflate();
         mTabLayout = findViewById(R.id.tabs);
+        mTabContainer = mTabLayout.getParent() instanceof View && mTabLayout.getParent() != this
+                ? (View) mTabLayout.getParent() : mTabLayout;
 
         // Find all floating header rows.
         ArrayList<FloatingHeaderRow> rows = new ArrayList<>();
@@ -194,7 +202,7 @@ public class FloatingHeaderView extends LinearLayout implements
             return;
         }
         PluginHeaderRow headerRow = new PluginHeaderRow(allAppsRowPlugin, this);
-        addView(headerRow.mView, indexOfChild(mTabLayout));
+        addView(headerRow.mView, indexOfChild(mTabContainer));
         mPluginRows.put(allAppsRowPlugin, headerRow);
         recreateAllRowsArray();
         allAppsRowPlugin.setOnHeightUpdatedListener(this);
@@ -271,6 +279,17 @@ public class FloatingHeaderView extends LinearLayout implements
         reset(false);
     }
 
+    /** Lawnchair: sets the recycler views of custom drawer tabs, keyed by holder type. */
+    void setCustomRecyclerViews(android.util.SparseArray<AllAppsRecyclerView> rvs) {
+        for (int i = 0; i < mCustomRVs.size(); i++) {
+            mCustomRVs.valueAt(i).setClipBounds(null);
+        }
+        mCustomRVs.clear();
+        for (int i = 0; i < rvs.size(); i++) {
+            mCustomRVs.put(rvs.keyAt(i), rvs.valueAt(i));
+        }
+    }
+
     /** Whether this header has been set up previously. */
     boolean isSetUp() {
         return mMainRV != null;
@@ -283,14 +302,16 @@ public class FloatingHeaderView extends LinearLayout implements
         }
         mCurrentRV =
                 rvType == AdapterHolder.MAIN ? mMainRV
-                : rvType == AdapterHolder.WORK ? mWorkRV : mSearchRV;
+                : rvType == AdapterHolder.WORK ? mWorkRV
+                : rvType == AdapterHolder.SEARCH ? mSearchRV
+                : mCustomRVs.get(rvType, mMainRV);
         mCurrentRV.addOnScrollListener(mOnScrollListener);
         maybeSetTabVisibility(rvType == AdapterHolder.SEARCH ? GONE : VISIBLE);
     }
 
     /** Update tab visibility to the given state, only if tabs are active (work profile exists). */
     void maybeSetTabVisibility(int visibility) {
-        mTabLayout.setVisibility(mTabsHidden ? GONE : visibility);
+        mTabContainer.setVisibility(mTabsHidden ? GONE : visibility);
     }
 
     private void updateExpectedHeight() {
@@ -364,7 +385,7 @@ public class FloatingHeaderView extends LinearLayout implements
             }
         }
 
-        mTabLayout.setTranslationY(mTranslationY);
+        mTabContainer.setTranslationY(mTranslationY);
 
         int clipTop = getPaddingTop() - mTabsAdditionalPaddingTop;
         if (mTabsHidden) {
@@ -380,6 +401,9 @@ public class FloatingHeaderView extends LinearLayout implements
         }
         if (mWorkRV != null) {
             mWorkRV.setClipBounds(mRVClip);
+        }
+        for (int i = 0; i < mCustomRVs.size(); i++) {
+            mCustomRVs.valueAt(i).setClipBounds(mRVClip);
         }
         if (mSearchRV != null) {
             mSearchRV.setClipBounds(mRVClip);
@@ -513,7 +537,7 @@ public class FloatingHeaderView extends LinearLayout implements
      */
     int getPeripheralProtectionHeight(boolean expected) {
         if (expected) {
-            return getTabLayout().getBottom() - getPaddingTop() + getPaddingBottom()
+            return mTabContainer.getBottom() - getPaddingTop() + getPaddingBottom()
                     - mMaxTranslation;
         }
         // we only want to show protection when work tab is available and header is either
@@ -522,6 +546,6 @@ public class FloatingHeaderView extends LinearLayout implements
             return 0;
         }
         return Math.max(0,
-                getTabLayout().getBottom() - getPaddingTop() + getPaddingBottom() + mTranslationY);
+                mTabContainer.getBottom() - getPaddingTop() + getPaddingBottom() + mTranslationY);
     }
 }

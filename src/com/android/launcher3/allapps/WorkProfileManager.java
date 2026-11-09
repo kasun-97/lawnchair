@@ -84,7 +84,8 @@ public class WorkProfileManager extends UserProfileManager
 
     private void updateWorkUtilityViews(int page) {
         if (mWorkUtilityView != null) {
-            if (page == MAIN || page == SEARCH) {
+            // Lawnchair: custom drawer tabs also hide the work button
+            if (page != WORK) {
                 mWorkUtilityView.animateVisibility(false);
             } else if (page == WORK && getCurrentState() == STATE_ENABLED) {
                 mWorkUtilityView.animateVisibility(true);

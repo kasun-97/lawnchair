@@ -425,7 +425,7 @@ public class AllAppsRecyclerView extends FastScrollRecyclerView {
                     : LAUNCHER_ALLAPPS_SEARCH_SCROLLED_UP);
             return;
         } else if (appsView.mViewPager != null) {
-            int currentPage = appsView.mViewPager.getCurrentPage();
+            int currentPage = appsView.getCurrentPage();
             if (currentPage == ActivityAllAppsContainerView.AdapterHolder.WORK) {
                 // In work A-Z list
                 mgr.logger().withContainerInfo(containerInfo).log((mCumulativeVerticalScroll > 0)

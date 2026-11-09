@@ -116,6 +116,17 @@ import java.util.stream.Stream;
 import app.lawnchair.preferences2.PreferenceCacheExtensionsKt;
 import static com.topjohnwu.superuser.internal.Utils.context;
 import app.lawnchair.allapps.LawnchairAlphabeticalAppsList;
+import app.lawnchair.allapps.tabs.DrawerTab;
+import app.lawnchair.allapps.tabs.DrawerTabsConfig;
+import app.lawnchair.allapps.tabs.DrawerTabsWatcher;
+import com.android.launcher3.model.data.AppInfo;
+import com.android.launcher3.util.ComponentKey;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import app.lawnchair.font.FontManager;
 import app.lawnchair.preferences.PreferenceManager;
 import app.lawnchair.preferences2.PreferenceManager2;
@@ -220,6 +231,23 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private final PreferenceManager2 pref2;
     private final PreferenceManager pref;
 
+    // Lawnchair: drawer tabs. Pages are [All (MAIN), custom tabs..., Work?].
+    // A page index is not an adapter holder type: use holderForPage()/pageForHolder().
+    private final DrawerTabsWatcher mTabsWatcher;
+    private DrawerTabsConfig mTabsConfig = DrawerTabsConfig.EMPTY;
+    private boolean mTabsConfigDirty;
+    /** Custom tab holders keyed by tab id. They also sit in mAH from FIRST_CUSTOM on. */
+    private final Map<Long, AdapterHolder> mCustomHolders = new HashMap<>();
+    /** Component keys of each custom tab, keyed by tab id. */
+    private final Map<Long, Set<String>> mTabKeys = new HashMap<>();
+    /** Page index -> adapter holder type (index into mAH) for the bound layout. */
+    private List<Integer> mPageHolders = new ArrayList<>(List.of(AdapterHolder.MAIN));
+    private List<Long> mBoundTabIds = new ArrayList<>();
+    private Set<String> mHiddenFromAll = Collections.emptySet();
+    /** Matcher for the first ("All") page: personal apps minus apps hidden from All. */
+    protected final Predicate<ItemInfo> mAllTabMatcher = info -> mPersonalMatcher.test(info)
+            && (mHiddenFromAll.isEmpty() || !mHiddenFromAll.contains(drawerKeyOf(info)));
+
     // LC-Note: Allapps cache colour
     private int mCachedBottomSheetBgColor;
 
@@ -256,7 +284,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                 UserCache.INSTANCE.get(mActivityContext));
         mPrivateSpaceBottomExtraSpace = context.getResources().getDimensionPixelSize(
                 R.dimen.ps_extra_bottom_padding);
-        mAH = Arrays.asList(null, null, null);
+        mAH = new ArrayList<>(Arrays.asList(null, null, null));
+        mTabsWatcher = new DrawerTabsWatcher(context, this::onTabsConfigChanged);
+        mTabsConfig = mTabsWatcher.current();
+        applyTabsConfigData();
         mNavBarScrimPaint = new Paint();
         mNavBarScrimPaint.setColor(Themes.getNavBarScrimColor(mActivityContext));
 
@@ -382,6 +413,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             mSearchUiDelegate.onInitializeSearchBar();
         }
         mActivityContext.addOnDeviceProfileChangeListener(this);
+        mTabsWatcher.start();
         if (Utilities.ATLEAST_S) {
             java.util.function.Consumer<Boolean> listener = enabled -> {
                 if (updateBottomSheetBackgroundColor(enabled)) {
@@ -404,6 +436,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
         mActivityContext.removeOnDeviceProfileChangeListener(this);
+        mTabsWatcher.stop();
         if (mCrossWindowBlurListener != null) {
             java.util.function.Consumer<Boolean> listener = mCrossWindowBlurListener;
             UI_HELPER_EXECUTOR.execute(() -> {
@@ -505,7 +538,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                     } else {
                         setSearchResults(null);
                         if (mViewPager != null) {
-                            mViewPager.setCurrentPage(previousPage);
+                            int page = pageForHolder(previousPage);
+                            if (page >= 0) {
+                                mViewPager.setCurrentPage(page);
+                            }
                         }
                         onActivePageChanged(previousPage, keepSearchFocus);
                         mSearchExitInProgress = false;
@@ -629,6 +665,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             return getContext().getString(R.string.all_apps_search_results);
         } else {
             StringCache cache = mActivityContext.getStringCache();
+            if (mUsingTabs && mTabsConfig.isActive()) {
+                CharSequence title = currentTabTitle();
+                if (title != null) {
+                    return title.toString();
+                }
+            }
             if (mUsingTabs) {
                 if (cache != null) {
                     return isPersonalTab()
@@ -655,9 +697,10 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         return isSearching();
     }
 
+    /** Called by the tab strip with a page index. */
     @Override
     public void onActivePageChanged(int currentActivePage) {
-        onActivePageChanged(currentActivePage, false);
+        onActivePageChanged(holderForPage(currentActivePage), false);
     }
 
     private void onActivePageChanged(int currentActivePage, boolean keepSearchFocus) {
@@ -691,65 +734,79 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         }
         updateSearchResultsVisibility();
 
+        // Lawnchair: drawer tabs can change the page layout without changing showTabs.
+        syncCustomHolders();
+        List<Integer> pages = computePageHolders();
+        List<Long> tabIds = currentTabIds();
         boolean showTabs = shouldShowTabs();
-        if (showTabs == mUsingTabs && !force) {
+        boolean layoutChanged = showTabs
+                && (!pages.equals(mPageHolders) || !tabIds.equals(mBoundTabIds));
+        if (showTabs == mUsingTabs && !layoutChanged && !force) {
+            if (mTabsConfigDirty) {
+                mTabsConfigDirty = false;
+                refreshDrawerTabs();
+            }
             Log.d(TAG, "rebindAdapters: Not needed.");
             return;
         }
+        mTabsConfigDirty = false;
 
-        // replaceAppsRVcontainer() needs to use both mUsingTabs value to remove the old view AND
+        forAllRecyclerViews(mAllAppsStore::unregisterIconContainer);
+
+        // replaceAppsRVContainer() needs to use both mUsingTabs value to remove the old view AND
         // showTabs value to create new view. Hence the mUsingTabs new value assignment MUST happen
         // after this call.
-        replaceAppsRVContainer(showTabs);
+        replaceAppsRVContainer(showTabs, showTabs ? pages.size() : 1);
         mUsingTabs = showTabs;
+        mPageHolders = showTabs ? pages : new ArrayList<>(List.of(AdapterHolder.MAIN));
+        mBoundTabIds = tabIds;
 
-        mAllAppsStore.unregisterIconContainer(mAH.get(AdapterHolder.MAIN).mRecyclerView);
-        mAllAppsStore.unregisterIconContainer(mAH.get(AdapterHolder.WORK).mRecyclerView);
-        mAllAppsStore.unregisterIconContainer(mAH.get(AdapterHolder.SEARCH).mRecyclerView);
-
-        final AllAppsRecyclerView mainRecyclerView;
-        final AllAppsRecyclerView workRecyclerView;
+        for (int i = AdapterHolder.FIRST_CUSTOM; i < mAH.size(); i++) {
+            mAH.get(i).mRecyclerView = null;
+        }
+        SparseArray<AllAppsRecyclerView> customRecyclerViews = new SparseArray<>();
+        AllAppsRecyclerView mainRecyclerView = null;
+        AllAppsRecyclerView workRecyclerView = null;
         if (mUsingTabs) {
-            mainRecyclerView = (AllAppsRecyclerView) mViewPager.getChildAt(0);
-            workRecyclerView = (AllAppsRecyclerView) mViewPager.getChildAt(1);
-            mAH.get(AdapterHolder.MAIN).setup(mainRecyclerView, mPersonalMatcher);
-            mAH.get(AdapterHolder.WORK).setup(workRecyclerView, mWorkManager.getItemInfoMatcher());
-            workRecyclerView.setId(R.id.apps_list_view_work);
-            if (enableExpandingPauseWorkButton()
-                    || FeatureFlags.ENABLE_EXPANDING_PAUSE_WORK_BUTTON.get()) {
-                mAH.get(AdapterHolder.WORK).mRecyclerView.addOnScrollListener(
-                        mWorkManager.newScrollListener());
+            for (int page = 0; page < mPageHolders.size(); page++) {
+                int type = mPageHolders.get(page);
+                AllAppsRecyclerView rv = (AllAppsRecyclerView) mViewPager.getChildAt(page);
+                AdapterHolder holder = mAH.get(type);
+                holder.setup(rv, matcherForHolder(holder));
+                if (type == AdapterHolder.MAIN) {
+                    mainRecyclerView = rv;
+                } else if (type == AdapterHolder.WORK) {
+                    workRecyclerView = rv;
+                } else {
+                    customRecyclerViews.put(type, rv);
+                }
             }
-            mViewPager.getPageIndicator().setActiveMarker(AdapterHolder.MAIN);
-            findViewById(R.id.tab_personal)
-                    .setOnClickListener((View view) -> {
-                        Log.d(TAG, "rebindAdapters: " + "Clicked personal tab.");
-                        if (mViewPager.snapToPage(AdapterHolder.MAIN)) {
-                            mActivityContext.getStatsLogManager().logger()
-                                    .log(LAUNCHER_ALLAPPS_TAP_ON_PERSONAL_TAB);
-                        }
-                    });
-            findViewById(R.id.tab_work)
-                    .setOnClickListener((View view) -> {
-                        Log.d(TAG, "rebindAdapters: " + "Clicked work tab.");
-                        if (mViewPager.snapToPage(AdapterHolder.WORK)) {
-                            mActivityContext.getStatsLogManager().logger()
-                                    .log(LAUNCHER_ALLAPPS_TAP_ON_WORK_TAB);
-                        }
-                    });
+            if (workRecyclerView != null) {
+                workRecyclerView.setId(R.id.apps_list_view_work);
+                if (enableExpandingPauseWorkButton()
+                        || FeatureFlags.ENABLE_EXPANDING_PAUSE_WORK_BUTTON.get()) {
+                    mAH.get(AdapterHolder.WORK).mRecyclerView.addOnScrollListener(
+                            mWorkManager.newScrollListener());
+                }
+            } else {
+                mAH.get(AdapterHolder.WORK).mRecyclerView = null;
+            }
+            bindTabStrip(0);
+            mViewPager.getPageIndicator().setActiveMarker(0);
             setDeviceManagementResources();
             if (mHeader.isSetUp()) {
-                onActivePageChanged(mViewPager.getNextPage());
+                onActivePageChanged(holderForPage(mViewPager.getNextPage()), false);
             }
         } else {
             mainRecyclerView = findViewById(R.id.apps_list_view);
-            workRecyclerView = null;
-            mAH.get(AdapterHolder.MAIN).setup(mainRecyclerView, mPersonalMatcher);
+            mAH.get(AdapterHolder.MAIN).setup(mainRecyclerView, mAllTabMatcher);
             mAH.get(AdapterHolder.WORK).mRecyclerView = null;
         }
+        mHeader.setCustomRecyclerViews(customRecyclerViews);
         setUpCustomRecyclerViewPool(
                 mainRecyclerView,
                 workRecyclerView,
+                customRecyclerViews,
                 mAllAppsStore.getRecyclerViewPool());
         setupHeader();
 
@@ -762,9 +819,227 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
                             R.dimen.fastscroll_bottom_margin_floating_search);
         }
 
-        mAllAppsStore.registerIconContainer(mAH.get(AdapterHolder.MAIN).mRecyclerView);
-        mAllAppsStore.registerIconContainer(mAH.get(AdapterHolder.WORK).mRecyclerView);
-        mAllAppsStore.registerIconContainer(mAH.get(AdapterHolder.SEARCH).mRecyclerView);
+        forAllRecyclerViews(mAllAppsStore::registerIconContainer);
+    }
+
+    // ---- Lawnchair: drawer tabs -------------------------------------------------------------
+
+    /** Component key string used by drawer tab settings, or "" when unknown. */
+    private static String drawerKeyOf(ItemInfo info) {
+        if (info instanceof AppInfo) {
+            return ((AppInfo) info).toComponentKey().toString();
+        }
+        if (info == null || info.getTargetComponent() == null || info.user == null) {
+            return "";
+        }
+        return new ComponentKey(info.getTargetComponent(), info.user).toString();
+    }
+
+    private void applyTabsConfigData() {
+        mHiddenFromAll = mTabsConfig.getHiddenFromAll();
+        mTabKeys.clear();
+        for (DrawerTab tab : mTabsConfig.getActiveTabs()) {
+            mTabKeys.put(tab.getId(), new HashSet<>(tab.getApps()));
+        }
+    }
+
+    private void onTabsConfigChanged(DrawerTabsConfig config) {
+        if (config.equals(mTabsConfig)) {
+            return;
+        }
+        Log.d(TAG, "onTabsConfigChanged: active=" + config.isActive()
+                + " tabs=" + config.getTabs().size());
+        mTabsConfig = config;
+        applyTabsConfigData();
+        mTabsConfigDirty = true;
+        if (isSearching()) {
+            mRebindAdaptersAfterSearchAnimation = true;
+        } else {
+            rebindAdapters();
+        }
+    }
+
+    /** Makes mAH hold exactly one holder per active custom tab, in tab order. */
+    private void syncCustomHolders() {
+        List<DrawerTab> tabs = mTabsConfig.getActiveTabs();
+        Set<Long> ids = new HashSet<>();
+        for (DrawerTab tab : tabs) {
+            ids.add(tab.getId());
+        }
+        Iterator<Map.Entry<Long, AdapterHolder>> it = mCustomHolders.entrySet().iterator();
+        while (it.hasNext()) {
+            AdapterHolder holder = it.next().getValue();
+            if (!ids.contains(holder.mTabId)) {
+                if (holder.mRecyclerView != null) {
+                    mAllAppsStore.unregisterIconContainer(holder.mRecyclerView);
+                    holder.mRecyclerView.setLayoutManager(null);
+                    holder.mRecyclerView.setAdapter(null);
+                    holder.mRecyclerView = null;
+                }
+                if (holder.mAppsList instanceof LawnchairAlphabeticalAppsList) {
+                    ((LawnchairAlphabeticalAppsList<?>) holder.mAppsList).dispose();
+                }
+                it.remove();
+            }
+        }
+        while (mAH.size() > AdapterHolder.FIRST_CUSTOM) {
+            mAH.remove(mAH.size() - 1);
+        }
+        for (int i = 0; i < tabs.size(); i++) {
+            long id = tabs.get(i).getId();
+            int type = AdapterHolder.FIRST_CUSTOM + i;
+            AdapterHolder holder = mCustomHolders.get(id);
+            if (holder == null) {
+                LawnchairAlphabeticalAppsList<T> list = new LawnchairAlphabeticalAppsList<>(
+                        mActivityContext, mAllAppsStore, null, null);
+                list.isCustomTab = true;
+                holder = new AdapterHolder(type, list);
+                holder.mTabId = id;
+                holder.mPadding.set(mAH.get(AdapterHolder.MAIN).mPadding);
+                mCustomHolders.put(id, holder);
+            } else {
+                holder.mType = type;
+            }
+            mAH.add(holder);
+        }
+    }
+
+    private List<Integer> computePageHolders() {
+        List<Integer> pages = new ArrayList<>();
+        pages.add(AdapterHolder.MAIN);
+        int count = mTabsConfig.getActiveTabs().size();
+        for (int i = 0; i < count; i++) {
+            pages.add(AdapterHolder.FIRST_CUSTOM + i);
+        }
+        if (mHasWorkApps) {
+            pages.add(AdapterHolder.WORK);
+        }
+        return pages;
+    }
+
+    private List<Long> currentTabIds() {
+        List<Long> ids = new ArrayList<>();
+        for (DrawerTab tab : mTabsConfig.getActiveTabs()) {
+            ids.add(tab.getId());
+        }
+        return ids;
+    }
+
+    private Predicate<ItemInfo> matcherForHolder(AdapterHolder holder) {
+        if (holder.isMain()) {
+            return mAllTabMatcher;
+        }
+        if (holder.isWork()) {
+            return mWorkManager.getItemInfoMatcher();
+        }
+        final long tabId = holder.mTabId;
+        final Predicate<ItemInfo> privateMatcher = mPrivateProfileManager.getItemInfoMatcher();
+        return info -> {
+            Set<String> keys = mTabKeys.get(tabId);
+            return keys != null && !keys.isEmpty()
+                    && !privateMatcher.test(info)
+                    && keys.contains(drawerKeyOf(info));
+        };
+    }
+
+    /** Re-applies filters and titles when tab contents change but the page layout does not. */
+    private void refreshDrawerTabs() {
+        mAH.get(AdapterHolder.MAIN).mAppsList.updateItemFilter(mAllTabMatcher);
+        for (int i = AdapterHolder.FIRST_CUSTOM; i < mAH.size(); i++) {
+            AdapterHolder holder = mAH.get(i);
+            holder.mAppsList.updateItemFilter(matcherForHolder(holder));
+        }
+        if (mUsingTabs && mViewPager != null) {
+            bindTabStrip(mViewPager.getNextPage());
+            setDeviceManagementResources();
+        }
+    }
+
+    /** Page index -> adapter holder type. */
+    private int holderForPage(int page) {
+        if (mViewPager == null || page < 0 || page >= mPageHolders.size()) {
+            return AdapterHolder.MAIN;
+        }
+        return mPageHolders.get(page);
+    }
+
+    /** Adapter holder type -> page index, or -1 if that holder has no page. */
+    private int pageForHolder(int holderType) {
+        if (mViewPager == null) {
+            return holderType == AdapterHolder.MAIN ? 0 : -1;
+        }
+        return mPageHolders.indexOf(holderType);
+    }
+
+    @Nullable
+    private CharSequence currentTabTitle() {
+        if (mViewPager == null) {
+            return null;
+        }
+        View tab = mViewPager.getPageIndicator().getChildAt(mViewPager.getNextPage());
+        return tab instanceof Button ? ((Button) tab).getText() : null;
+    }
+
+    /** Builds the tab buttons for the bound pages and wires clicks. */
+    private void bindTabStrip(int activePage) {
+        PersonalWorkSlidingTabStrip strip = mViewPager.getPageIndicator();
+        boolean custom = mTabsConfig.isActive();
+        if (custom || !strip.hasStockTabs()) {
+            List<CharSequence> titles = new ArrayList<>();
+            int[] ids = new int[mPageHolders.size()];
+            for (int page = 0; page < mPageHolders.size(); page++) {
+                int type = mPageHolders.get(page);
+                if (type == AdapterHolder.MAIN) {
+                    titles.add(custom ? mTabsConfig.allTabTitle(getContext())
+                            : getContext().getString(R.string.all_apps_personal_tab));
+                    ids[page] = R.id.tab_personal;
+                } else if (type == AdapterHolder.WORK) {
+                    titles.add(getContext().getString(R.string.all_apps_work_tab));
+                    ids[page] = R.id.tab_work;
+                } else {
+                    titles.add(tabForHolder(type).getTitle());
+                    ids[page] = View.NO_ID;
+                }
+            }
+            strip.setTabs(titles, ids, custom, activePage);
+        }
+        for (int page = 0; page < strip.getChildCount() && page < mPageHolders.size(); page++) {
+            final int target = page;
+            final int type = mPageHolders.get(page);
+            View tab = strip.getChildAt(page);
+            tab.setOnClickListener(v -> {
+                Log.d(TAG, "Clicked all apps tab " + target);
+                if (mViewPager.snapToPage(target)) {
+                    if (type == AdapterHolder.MAIN) {
+                        mActivityContext.getStatsLogManager().logger()
+                                .log(LAUNCHER_ALLAPPS_TAP_ON_PERSONAL_TAB);
+                    } else if (type == AdapterHolder.WORK) {
+                        mActivityContext.getStatsLogManager().logger()
+                                .log(LAUNCHER_ALLAPPS_TAP_ON_WORK_TAB);
+                    }
+                }
+            });
+            Long tabId;
+            if (type == AdapterHolder.MAIN) {
+                tabId = -1L;
+            } else if (type == AdapterHolder.WORK) {
+                tabId = null;
+            } else {
+                tabId = tabForHolder(type).getId();
+            }
+            onBindDrawerTab(tab, tabId);
+        }
+    }
+
+    private DrawerTab tabForHolder(int type) {
+        return mTabsConfig.getActiveTabs().get(type - AdapterHolder.FIRST_CUSTOM);
+    }
+
+    /**
+     * Hook for tab buttons. {@code tabId} is -1 for the "All" tab, null for the Work tab, else
+     * the custom tab id.
+     */
+    protected void onBindDrawerTab(View tab, @Nullable Long tabId) {
     }
 
     /**
@@ -778,21 +1053,26 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private static void setUpCustomRecyclerViewPool(
             @NonNull AllAppsRecyclerView mainRecyclerView,
             @Nullable AllAppsRecyclerView workRecyclerView,
+            @NonNull SparseArray<AllAppsRecyclerView> customRecyclerViews,
             @NonNull AllAppsRecyclerViewPool recycledViewPool) {
-        final boolean hasWorkProfile = workRecyclerView != null;
+        // Lawnchair: custom drawer tabs share the pool, sized as for two lists.
+        final boolean hasWorkProfile = workRecyclerView != null || customRecyclerViews.size() > 0;
         recycledViewPool.setHasWorkProfile(hasWorkProfile);
         mainRecyclerView.setRecycledViewPool(recycledViewPool);
         if (workRecyclerView != null) {
             workRecyclerView.setRecycledViewPool(recycledViewPool);
         }
+        for (int i = 0; i < customRecyclerViews.size(); i++) {
+            customRecyclerViews.valueAt(i).setRecycledViewPool(recycledViewPool);
+        }
         mainRecyclerView.updatePoolSize(hasWorkProfile);
     }
 
-    private void replaceAppsRVContainer(boolean showTabs) {
-        Log.d(TAG, "replaceAppsRVContainer: showTabs: " + showTabs);
-        for (int i = AdapterHolder.MAIN; i <= AdapterHolder.WORK; i++) {
+    private void replaceAppsRVContainer(boolean showTabs, int pageCount) {
+        Log.d(TAG, "replaceAppsRVContainer: showTabs: " + showTabs + " pages: " + pageCount);
+        for (int i = 0; i < mAH.size(); i++) {
             AdapterHolder adapterHolder = mAH.get(i);
-            if (adapterHolder.mRecyclerView != null) {
+            if (i != AdapterHolder.SEARCH && adapterHolder.mRecyclerView != null) {
                 adapterHolder.mRecyclerView.setLayoutManager(null);
                 adapterHolder.mRecyclerView.setAdapter(null);
             }
@@ -802,6 +1082,14 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         removeView(oldView);
         int layout = showTabs ? R.layout.all_apps_tabs : R.layout.all_apps_rv_layout;
         final View rvContainer = getLayoutInflater().inflate(layout, this, false);
+        if (showTabs && ((ViewGroup) rvContainer).getChildCount() != pageCount) {
+            // Lawnchair: one recycler view per drawer tab page.
+            ViewGroup pager = (ViewGroup) rvContainer;
+            pager.removeAllViews();
+            for (int i = 0; i < pageCount; i++) {
+                getLayoutInflater().inflate(R.layout.all_apps_rv_layout, pager, true);
+            }
+        }
         addView(rvContainer, index);
         if (showTabs) {
             mViewPager = (AllAppsPagedView) rvContainer;
@@ -1179,8 +1467,9 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         Bundle state = (Bundle) sparseArray.get(R.id.work_tab_state_id, null);
         if (state != null) {
             int currentPage = state.getInt(BUNDLE_KEY_CURRENT_PAGE, 0);
-            if (currentPage == AdapterHolder.WORK && mViewPager != null) {
-                mViewPager.setCurrentPage(currentPage);
+            int page = pageForHolder(currentPage);
+            if (currentPage != AdapterHolder.MAIN && page > 0 && mViewPager != null) {
+                mViewPager.setCurrentPage(page);
                 rebindAdapters();
             } else {
                 reset(true);
@@ -1346,11 +1635,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
 
     /** The current apps recycler view in the container. */
     private AllAppsRecyclerView getActiveAppsRecyclerView() {
-        if (!mUsingTabs || isPersonalTab()) {
+        if (!mUsingTabs || mViewPager == null || isPersonalTab()) {
             return mAH.get(AdapterHolder.MAIN).mRecyclerView;
-        } else {
-            return mAH.get(AdapterHolder.WORK).mRecyclerView;
         }
+        AllAppsRecyclerView rv =
+                mAH.get(holderForPage(mViewPager.getNextPage())).mRecyclerView;
+        return rv != null ? rv : mAH.get(AdapterHolder.MAIN).mRecyclerView;
     }
 
     /**
@@ -1367,7 +1657,8 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     protected boolean isPersonalTab() {
-        return mViewPager == null || mViewPager.getNextPage() == 0;
+        return mViewPager == null
+                || holderForPage(mViewPager.getNextPage()) == AdapterHolder.MAIN;
     }
 
     /**
@@ -1375,8 +1666,9 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      * nothing.
      */
     public void switchToTab(int tab) {
-        if (mUsingTabs) {
-            mViewPager.setCurrentPage(tab);
+        int page = pageForHolder(tab);
+        if (mUsingTabs && page >= 0) {
+            mViewPager.setCurrentPage(page);
         }
     }
 
@@ -1483,14 +1775,22 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private void setDeviceManagementResources() {
         if (mActivityContext.getStringCache() != null) {
             Button personalTab = findViewById(R.id.tab_personal);
-            personalTab.setText(R.string.all_apps_personal_tab);
-            personalTab.setAllCaps(false);
-            FontManager.INSTANCE.get(getContext()).setCustomFont(personalTab, R.id.font_button);
+            if (personalTab != null) {
+                if (mTabsConfig.isActive()) {
+                    personalTab.setText(mTabsConfig.allTabTitle(getContext()));
+                } else {
+                    personalTab.setText(R.string.all_apps_personal_tab);
+                }
+                personalTab.setAllCaps(false);
+                FontManager.INSTANCE.get(getContext()).setCustomFont(personalTab, R.id.font_button);
+            }
 
             Button workTab = findViewById(R.id.tab_work);
-            workTab.setText(R.string.all_apps_work_tab);
-            workTab.setAllCaps(false);
-            FontManager.INSTANCE.get(getContext()).setCustomFont(workTab, R.id.font_button);
+            if (workTab != null) {
+                workTab.setText(R.string.all_apps_work_tab);
+                workTab.setAllCaps(false);
+                FontManager.INSTANCE.get(getContext()).setCustomFont(workTab, R.id.font_button);
+            }
         }
     }
 
@@ -1498,7 +1798,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      * Returns true if the container has work apps.
      */
     public boolean shouldShowTabs() {
-        return mHasWorkApps;
+        return mHasWorkApps || mTabsConfig.isActive();
     }
 
     // Used by tests only
@@ -1575,7 +1875,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     public int getCurrentPage() {
         return isSearching()
                 ? SEARCH
-                : mViewPager == null ? AdapterHolder.MAIN : mViewPager.getNextPage();
+                : mViewPager == null ? AdapterHolder.MAIN : holderForPage(mViewPager.getNextPage());
     }
 
     public PrivateProfileManager getPrivateProfileManager() {
@@ -1833,8 +2133,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
         public static final int MAIN = 0;
         public static final int WORK = 1;
         public static final int SEARCH = 2;
+        /** Lawnchair: holder type of the first custom drawer tab; later tabs follow. */
+        public static final int FIRST_CUSTOM = 3;
 
-        private final int mType;
+        private int mType;
+        /** Lawnchair: drawer tab id for custom tab holders, -1 otherwise. */
+        long mTabId = -1;
         public final BaseAllAppsAdapter<T> mAdapter;
         final RecyclerView.LayoutManager mLayoutManager;
         final AlphabeticalAppsList<T> mAppsList;
@@ -1902,7 +2206,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             }
         }
 
-        private boolean isWork() {
+        boolean isWork() {
             return mType == WORK;
         }
 
@@ -1910,7 +2214,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
             return mType == SEARCH;
         }
 
-        private boolean isMain() {
+        boolean isMain() {
             return mType == MAIN;
         }
     }

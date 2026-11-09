@@ -14,14 +14,22 @@
   ~ limitations under the License.
 -->
 
-<com.android.launcher3.workprofile.PersonalWorkSlidingTabStrip
+<!-- Lawnchair: wrapped in a HorizontalScrollView so custom drawer tabs can scroll. -->
+<HorizontalScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:launcher="http://schemas.android.com/apk/res-auto"
-    android:id="@+id/tabs"
+    android:id="@+id/tabs_scroller"
     android:layout_width="match_parent"
     android:layout_height="@dimen/all_apps_header_pill_height"
     android:layout_gravity="center_horizontal"
     android:layout_marginTop="@dimen/all_apps_tabs_margin_top"
+    android:overScrollMode="never"
+    android:scrollbars="none">
+
+<com.android.launcher3.workprofile.PersonalWorkSlidingTabStrip
+    android:id="@+id/tabs"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
     android:orientation="horizontal"
     style="@style/TextHeadline"
     launcher:alignOnIcon="true">
@@ -52,3 +60,4 @@
         android:textSize="14sp"
         style="@style/AllAppsPersonalWorkTabStyle" />
 </com.android.launcher3.workprofile.PersonalWorkSlidingTabStrip>
+</HorizontalScrollView>
