@@ -117,6 +117,7 @@ import app.lawnchair.preferences2.PreferenceCacheExtensionsKt;
 import static com.topjohnwu.superuser.internal.Utils.context;
 import app.lawnchair.allapps.LawnchairAlphabeticalAppsList;
 import app.lawnchair.allapps.tabs.DrawerTab;
+import app.lawnchair.allapps.tabs.DrawerTabsActions;
 import app.lawnchair.allapps.tabs.DrawerTabsConfig;
 import app.lawnchair.allapps.tabs.DrawerTabsWatcher;
 import com.android.launcher3.model.data.AppInfo;
@@ -1036,10 +1037,21 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     }
 
     /**
-     * Hook for tab buttons. {@code tabId} is -1 for the "All" tab, null for the Work tab, else
-     * the custom tab id.
+     * Wires long-press on a tab button: opens that tab's editor in settings ("All" opens the
+     * tabs list). {@code tabId} is -1 for "All", null for the Work tab, else the custom tab id.
      */
     protected void onBindDrawerTab(View tab, @Nullable Long tabId) {
+        if (tabId == null || !mTabsConfig.isActive()) {
+            tab.setOnLongClickListener(null);
+            tab.setLongClickable(false);
+            return;
+        }
+        final long id = tabId;
+        tab.setOnLongClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            DrawerTabsActions.openEditor(getContext(), id);
+            return true;
+        });
     }
 
     /**
