@@ -28,6 +28,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import app.lawnchair.allapps.tabs.DrawerTab
 import app.lawnchair.data.Converters
 import app.lawnchair.font.FontCache
 import app.lawnchair.gestures.config.GestureHandlerConfig
@@ -335,6 +336,24 @@ class PreferenceManager2 @Inject constructor(
     val hiddenApps = preference(
         key = stringSetPreferencesKey(name = "hidden_apps"),
         defaultValue = setOf(),
+    )
+
+    /** Drawer tabs: master switch. Tabs appear only when enabled and at least one exists. */
+    val drawerTabsEnabled = preference(
+        key = booleanPreferencesKey(name = "drawer_tabs_enabled"),
+        defaultValue = false,
+    )
+
+    /** Title of the built-in first tab that lists all apps. Blank means the default string. */
+    val drawerAllTabTitle = preference(
+        key = stringPreferencesKey(name = "drawer_all_tab_title"),
+        defaultValue = "",
+    )
+
+    /** User-defined drawer tabs, in display order (after the "All" tab). */
+    val drawerTabs = serializablePreference<List<DrawerTab>>(
+        key = stringPreferencesKey("drawer_tabs"),
+        defaultValue = emptyList(),
     )
 
     val roundedWidgets = preference(
