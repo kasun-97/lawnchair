@@ -237,6 +237,12 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private final DrawerTabsWatcher mTabsWatcher;
     private DrawerTabsConfig mTabsConfig = DrawerTabsConfig.EMPTY;
     private boolean mTabsConfigDirty;
+    /**
+     * Custom tabs are only shown once apps have been bound (like the stock Work tab). Showing
+     * them during inflation crashes: the tabs path attaches work views that need the launcher's
+     * apps view, which is not assigned yet.
+     */
+    private boolean mAppsBound;
     /** Custom tab holders keyed by tab id. They also sit in mAH from FIRST_CUSTOM on. */
     private final Map<Long, AdapterHolder> mCustomHolders = new HashMap<>();
     /** Component keys of each custom tab, keyed by tab id. */
@@ -908,7 +914,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     private List<Integer> computePageHolders() {
         List<Integer> pages = new ArrayList<>();
         pages.add(AdapterHolder.MAIN);
-        int count = mTabsConfig.getActiveTabs().size();
+        int count = mAppsBound ? mTabsConfig.getActiveTabs().size() : 0;
         for (int i = 0; i < count; i++) {
             pages.add(AdapterHolder.FIRST_CUSTOM + i);
         }
@@ -1551,6 +1557,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     @VisibleForTesting
     public void onAppsUpdated() {
         Log.d(TAG, "onAppsUpdated; number of apps: " + mAllAppsStore.getApps().length);
+        mAppsBound = true;
         mHasWorkApps = Stream.of(mAllAppsStore.getApps())
                 .anyMatch(mWorkManager.getItemInfoMatcher());
         mHasPrivateApps = Stream.of(mAllAppsStore.getApps())
@@ -1810,7 +1817,7 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
      * Returns true if the container has work apps.
      */
     public boolean shouldShowTabs() {
-        return mHasWorkApps || mTabsConfig.isActive();
+        return mHasWorkApps || (mAppsBound && mTabsConfig.isActive());
     }
 
     // Used by tests only
