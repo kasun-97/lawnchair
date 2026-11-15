@@ -11,6 +11,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -40,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -56,8 +59,8 @@ private val RemoveButton = 28.dp
 private enum class Edge { Start, End, Bottom }
 
 /**
- * One widget of the feed, up to its set height and across the feed unless a width is set. Draws
- * nothing once the widget is gone.
+ * One widget of the feed under its title, up to its set height and across the feed unless a width
+ * is set. Draws nothing once the widget is gone.
  *
  * While [resizing], the widget is covered by a frame whose handles change its size; the result is
  * reported through [onResized] when a handle is let go. The frame's corner button asks for
@@ -100,64 +103,77 @@ fun FeedWidgetBlock(
         val fullWidth = maxWidth
         val setWidth = if (shown.widthDp > 0) shown.widthDp.dp.coerceAtMost(fullWidth) else fullWidth
         val drag = dragSize
-        Box(
-            modifier = Modifier
-                .width(drag?.width ?: setWidth)
-                .then(if (drag != null) Modifier.height(drag.height) else Modifier)
-                .onSizeChanged { blockHeightPx = it.height },
-        ) {
-            AndroidView(
-                factory = {
-                    (view.parent as? ViewGroup)?.removeView(view)
-                    view.layoutParams = ViewGroup.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                    )
-                    view
-                },
+        Column(modifier = Modifier.width(drag?.width ?: setWidth)) {
+            if (shown.shownTitle.isNotBlank()) {
+                Text(
+                    text = shown.shownTitle,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    // Starts where the titles of the app sections start.
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+            }
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    // An upper limit: FeedWidgetHostView takes less for a widget with a height of
-                    // its own.
-                    .heightIn(max = drag?.height ?: shown.heightDp.dp)
-                    .clip(shape),
-            )
-            if (resizing) {
-                ResizeFrame(
-                    shape = shape,
-                    onRemove = onRemove,
-                    onDragStart = {
-                        dragSize = DpSize(setWidth, with(density) { blockHeightPx.toDp() })
+                    .then(if (drag != null) Modifier.height(drag.height) else Modifier)
+                    .onSizeChanged { blockHeightPx = it.height },
+            ) {
+                AndroidView(
+                    factory = {
+                        (view.parent as? ViewGroup)?.removeView(view)
+                        view.layoutParams = ViewGroup.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                        )
+                        view
                     },
-                    onDrag = { edge, amount ->
-                        dragSize = dragSize?.let { size ->
-                            when (edge) {
-                                Edge.Bottom -> size.copy(
-                                    height = (size.height + amount)
-                                        .coerceIn(FeedWidget.MIN_HEIGHT_DP.dp, FeedWidget.MAX_HEIGHT_DP.dp),
-                                )
-
-                                // The widget stays centred, so each side moves by the same amount.
-                                else -> size.copy(
-                                    width = (size.width + amount * 2).coerceIn(MinWidth.coerceAtMost(fullWidth), fullWidth),
-                                )
-                            }
-                        }
-                    },
-                    onDragEnd = {
-                        dragSize?.let { size ->
-                            val resized = shown.copy(
-                                heightDp = size.height.value.roundToInt(),
-                                // Zero stands for the full width, whatever that is on this screen.
-                                widthDp = if (size.width >= fullWidth - 8.dp) 0 else size.width.value.roundToInt(),
-                            )
-                            shown = resized
-                            onResized(resized)
-                        }
-                        dragSize = null
-                    },
-                    modifier = Modifier.matchParentSize(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        // An upper limit: FeedWidgetHostView takes less for a widget with a height of
+                        // its own.
+                        .heightIn(max = drag?.height ?: shown.heightDp.dp)
+                        .clip(shape),
                 )
+                if (resizing) {
+                    ResizeFrame(
+                        shape = shape,
+                        onRemove = onRemove,
+                        onDragStart = {
+                            dragSize = DpSize(setWidth, with(density) { blockHeightPx.toDp() })
+                        },
+                        onDrag = { edge, amount ->
+                            dragSize = dragSize?.let { size ->
+                                when (edge) {
+                                    Edge.Bottom -> size.copy(
+                                        height = (size.height + amount)
+                                            .coerceIn(FeedWidget.MIN_HEIGHT_DP.dp, FeedWidget.MAX_HEIGHT_DP.dp),
+                                    )
+
+                                    // The widget stays centred, so each side moves by the same amount.
+                                    else -> size.copy(
+                                        width = (size.width + amount * 2).coerceIn(MinWidth.coerceAtMost(fullWidth), fullWidth),
+                                    )
+                                }
+                            }
+                        },
+                        onDragEnd = {
+                            dragSize?.let { size ->
+                                val resized = shown.copy(
+                                    heightDp = size.height.value.roundToInt(),
+                                    // Zero stands for the full width, whatever that is on this screen.
+                                    widthDp = if (size.width >= fullWidth - 8.dp) 0 else size.width.value.roundToInt(),
+                                )
+                                shown = resized
+                                onResized(resized)
+                            }
+                            dragSize = null
+                        },
+                        modifier = Modifier.matchParentSize(),
+                    )
+                }
             }
         }
     }

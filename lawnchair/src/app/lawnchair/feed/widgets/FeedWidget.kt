@@ -12,6 +12,7 @@ import kotlinx.serialization.Serializable
  * @param heightDp height in the feed, or the most it may take if the widget has a height of its
  * own.
  * @param widthDp width in the feed, centred; 0 for the full width of the feed.
+ * @param title title set by the user: null to use [label], blank to show none.
  */
 @Immutable
 @Serializable
@@ -21,7 +22,14 @@ data class FeedWidget(
     val label: String,
     val heightDp: Int,
     val widthDp: Int = 0,
+    val title: String? = null,
 ) {
+    /** The line shown above the widget in the feed; blank when it was switched off. */
+    val shownTitle: String get() = title ?: label
+
+    /** What the widget is called in lists and questions, whether or not its title is shown. */
+    val name: String get() = title?.takeIf { it.isNotBlank() } ?: label
+
     companion object {
         const val MIN_HEIGHT_DP = 56
         const val MAX_HEIGHT_DP = 640

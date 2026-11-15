@@ -26,6 +26,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +34,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -84,7 +86,7 @@ fun FeedWidgetsPreferenceItem(
         subtitle = if (widgets.isEmpty()) {
             stringResource(R.string.feed_widgets_description)
         } else {
-            widgets.joinToString(", ") { it.label }
+            widgets.joinToString(", ") { it.name }
         },
         modifier = modifier,
     )
@@ -151,7 +153,7 @@ fun FeedWidgetsPreferences(
             ) { widget, _, _ ->
                 val interactionSource = remember { MutableInteractionSource() }
                 PreferenceTemplate(
-                    title = { Text(widget.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    title = { Text(widget.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     description = {
                         Text(
                             stringResource(R.string.feed_widgets_height) + ": " +
@@ -179,12 +181,12 @@ fun FeedWidgetsPreferences(
                     onClick = {
                         haptics.playToken(MSDLToken.TAP_MEDIUM_EMPHASIS)
                         bottomSheetHandler.show {
-                            WidgetHeightSheet(
+                            WidgetSettingsSheet(
                                 widget = widget,
-                                onSave = { height ->
+                                onSave = { title, height ->
                                     widgetsAdapter.onChange(
                                         widgetsAdapter.state.value.map {
-                                            if (it.id == widget.id) it.copy(heightDp = height) else it
+                                            if (it.id == widget.id) it.copy(title = title, heightDp = height) else it
                                         },
                                     )
                                 },
@@ -199,12 +201,14 @@ fun FeedWidgetsPreferences(
     }
 }
 
+/** Title shown above the widget (empty for none) and its height. */
 @Composable
-private fun WidgetHeightSheet(
+private fun WidgetSettingsSheet(
     widget: FeedWidget,
-    onSave: (Int) -> Unit,
+    onSave: (title: String?, height: Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    var title by remember { mutableStateOf(widget.shownTitle) }
     var height by remember { mutableFloatStateOf(widget.heightDp.toFloat()) }
     ModalBottomSheetContent(
         title = { Text(widget.label) },
@@ -216,7 +220,8 @@ private fun WidgetHeightSheet(
             Button(
                 onClick = {
                     onDismiss()
-                    onSave(height.roundToInt())
+                    // Left as the widget's own name, the title keeps following that name.
+                    onSave(title.trim().takeIf { it != widget.label }, height.roundToInt())
                 },
                 shapes = ButtonDefaults.shapes(),
             ) {
@@ -225,6 +230,16 @@ private fun WidgetHeightSheet(
         },
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text(stringResource(R.string.feed_widgets_title)) },
+                supportingText = { Text(stringResource(R.string.feed_widgets_title_hint)) },
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+            )
             Text(
                 text = stringResource(R.string.feed_widgets_height) + ": " +
                     stringResource(R.string.feed_widgets_height_value, height.roundToInt()),

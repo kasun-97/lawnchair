@@ -135,7 +135,7 @@ fun FeedContent(
         AlertDialog(
             onDismissRequest = { widgetToRemove = null },
             title = { Text(stringResource(R.string.feed_widgets_remove_title)) },
-            text = { Text(stringResource(R.string.feed_widgets_remove_message, widget.label)) },
+            text = { Text(stringResource(R.string.feed_widgets_remove_message, widget.name)) },
             confirmButton = {
                 TextButton(
                     onClick = {
