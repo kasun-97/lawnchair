@@ -2427,6 +2427,8 @@ public class Launcher extends StatefulActivity<LauncherState>
                                 .setPageIndex(visible ? 0 : -1))
                         .build())
                 .log(visible ? LAUNCHER_SWIPELEFT : LAUNCHER_SWIPERIGHT);
+        // LC-Note: Whether the back gesture is allowed depends on the feed being shown.
+        updateDisallowBack();
     }
 
     /**
@@ -2687,7 +2689,9 @@ public class Launcher extends StatefulActivity<LauncherState>
             boolean isSplitSelectionEnabled = isSplitSelectionActive();
             boolean disableBack = getStateManager().getState() == NORMAL
                     && AbstractFloatingView.getTopOpenView(this) == null
-                    && !isSplitSelectionEnabled;
+                    && !isSplitSelectionEnabled
+                    // LC-Note: The built-in feed is closed with the back gesture.
+                    && !mWorkspace.isOverlayShown();
             rv.setDisallowBackGesture(disableBack);
         }
     }

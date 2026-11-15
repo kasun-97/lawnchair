@@ -57,7 +57,7 @@ class FeedBridge(private val context: Context) {
     }
 
     private fun customBridgeOrNull(customPackage: String = prefs.feedProvider.get()): CustomBridgeInfo? {
-        return if (customPackage.isNotBlank()) {
+        return if (customPackage.isNotBlank() && !isBuiltIn(customPackage)) {
             val bridge = CustomBridgeInfo(customPackage)
             if (bridge.isAvailable()) bridge else null
         } else {
@@ -154,6 +154,15 @@ class FeedBridge(private val context: Context) {
     ) {
         private const val TAG = "FeedBridge"
         private const val OVERLAY_ACTION = "com.android.launcher3.WINDOW_OVERLAY"
+
+        /** Value of the feed provider preference that selects the feed built into the launcher. */
+        const val BUILT_IN_FEED = "lawnchair:built_in_feed"
+
+        @JvmStatic
+        fun isBuiltIn(feedProvider: String) = feedProvider == BUILT_IN_FEED
+
+        @JvmStatic
+        fun isBuiltInSelected(context: Context) = isBuiltIn(PreferenceManager.getInstance(context).feedProvider.get())
 
         private val whitelist = mutableMapOf<String, Long?>()
 

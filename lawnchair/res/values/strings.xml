@@ -143,6 +143,10 @@
 
     <string name="app_drawer_folder">App drawer folders</string>
 
+    <!-- Built-in feed -->
+    <string name="feed_built_in">Built-in feed</string>
+    <string name="feed_empty">Your feed is empty</string>
+
     <!-- Drawer tabs -->
     <string name="drawer_tabs_label">Tabs</string>
     <string name="drawer_tabs_description">Group apps into swipeable tabs</string>

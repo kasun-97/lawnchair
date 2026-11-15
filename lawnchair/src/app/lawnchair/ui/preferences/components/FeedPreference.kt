@@ -34,21 +34,33 @@ fun getProviders(context: Context) = FeedBridge.getAvailableProviders(context).m
     )
 }
 
-fun getEntries(context: Context) = getProviders(context).map {
+fun getEntries(context: Context) = listOf(builtInEntry(context)) + getProviders(context).map {
     ListPreferenceEntry(
         value = it.packageName,
-        endWidget = {
-            if (it.icon != null) {
-                Image(
-                    painter = rememberDrawablePainter(drawable = it.icon),
-                    contentDescription = null,
-                    modifier = Modifier.requiredSize(48.dp),
-                )
-            }
-        },
+        endWidget = { ProviderIcon(it.icon) },
         label = { it.name },
     )
 }.toList()
+
+private fun builtInEntry(context: Context): ListPreferenceEntry<String> {
+    val icon = CustomAdaptiveIconDrawable.wrapNonNull(context.applicationInfo.loadIcon(context.packageManager))
+    return ListPreferenceEntry(
+        value = FeedBridge.BUILT_IN_FEED,
+        endWidget = { ProviderIcon(icon) },
+        label = { stringResource(R.string.feed_built_in) },
+    )
+}
+
+@Composable
+private fun ProviderIcon(icon: Drawable?) {
+    if (icon != null) {
+        Image(
+            painter = rememberDrawablePainter(drawable = icon),
+            contentDescription = null,
+            modifier = Modifier.requiredSize(48.dp),
+        )
+    }
+}
 
 @Composable
 fun FeedPreference(
@@ -59,7 +71,11 @@ fun FeedPreference(
     val preferredPackage = adapter.state.value
     val entries = remember { getEntries(context) }
     val resolvedPackage = remember(preferredPackage) {
-        FeedBridge.getInstance(context).resolveBridge(preferredPackage)?.packageName ?: "com.google.android.googlequicksearchbox"
+        if (FeedBridge.isBuiltIn(preferredPackage)) {
+            preferredPackage
+        } else {
+            FeedBridge.getInstance(context).resolveBridge(preferredPackage)?.packageName ?: "com.google.android.googlequicksearchbox"
+        }
     }
     Log.d("FEEDDDDD", "FeedPreference: $preferredPackage, $resolvedPackage")
     val resolvedEntry = entries.firstOrNull {

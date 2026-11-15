@@ -25,8 +25,10 @@ import com.google.android.libraries.launcherclient.StaticInteger
  *
  * Implements [LauncherClientCallbacks] and sends all the corresponding callbacks to [Launcher].
  */
-class OverlayCallbackImpl(private val mLauncher: LawnchairLauncher) :
-    LauncherOverlay,
+class OverlayCallbackImpl(
+    private val mLauncher: LawnchairLauncher,
+    private val onOverlayChanged: (LauncherOverlay?) -> Unit,
+) : LauncherOverlay,
     LauncherClientCallbacks,
     LauncherOverlayManager,
     ISerializableScrollCallback {
@@ -38,7 +40,8 @@ class OverlayCallbackImpl(private val mLauncher: LawnchairLauncher) :
 
     init {
         val prefs = PreferenceManager2.getInstance(mLauncher)
-        val enableFeed = prefs.enableFeed.firstCached()
+        // The built-in feed replaces this one, see FeedOverlayManager.
+        val enableFeed = prefs.enableFeed.firstCached() && !FeedBridge.isBuiltInSelected(mLauncher)
         mClient = LauncherClient(
             mLauncher,
             this,
@@ -114,7 +117,7 @@ class OverlayCallbackImpl(private val mLauncher: LawnchairLauncher) :
     override fun onServiceStateChanged(overlayAttached: Boolean) {
         if (overlayAttached != mWasOverlayAttached) {
             mWasOverlayAttached = overlayAttached
-            mLauncher.setLauncherOverlay(if (overlayAttached) this else null)
+            onOverlayChanged(if (overlayAttached) this else null)
         }
     }
 
