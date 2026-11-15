@@ -53,11 +53,12 @@ object FeedBlocks {
  * a tap.
  *
  * @param onHeld the hold was recognised; a drag may follow.
- * @param onHeldRelease the block was let go again without being dragged.
+ * @param onHeldRelease the block was let go again without being dragged; the position is where
+ * it was held, relative to the block.
  */
 class HoldDragDetector(
     private val onHeld: () -> Unit,
-    private val onHeldRelease: () -> Unit,
+    private val onHeldRelease: (heldAt: Offset) -> Unit,
 ) : DragGestureDetector {
 
     override suspend fun PointerInputScope.detect(
@@ -87,12 +88,12 @@ class HoldDragDetector(
                 val event = awaitPointerEvent(PointerEventPass.Initial)
                 val change = event.changes.firstOrNull { it.id == down.id }
                 if (change == null) {
-                    if (dragging) onDragCancel() else onHeldRelease()
+                    if (dragging) onDragCancel() else onHeldRelease(down.position)
                     break
                 }
                 if (!change.pressed) {
                     change.consume()
-                    if (dragging) onDragEnd() else onHeldRelease()
+                    if (dragging) onDragEnd() else onHeldRelease(down.position)
                     break
                 }
                 if (!dragging && (change.position - down.position).getDistance() > viewConfiguration.touchSlop) {

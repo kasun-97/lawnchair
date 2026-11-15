@@ -31,7 +31,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect as ComposeRect
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +47,7 @@ import com.google.accompanist.drawablepainter.rememberDrawablePainter
 import java.util.Locale
 
 private val IconSize = 52.dp
+private val BlockPadding = 8.dp
 
 /**
  * The launcher's loaded apps by ComponentKey string, kept current as apps are installed,
@@ -71,26 +74,33 @@ fun FeedAppSection.resolveApps(apps: Map<String, AppInfo>): List<AppInfo> = this
     .mapNotNull(apps::get)
     .sortedBy { it.title?.toString().orEmpty().lowercase(Locale.getDefault()) }
 
-/** One section of the feed: its title over a grid of app icons. */
+/**
+ * One section of the feed: its title over a grid of app icons. [onTitleBottomChange] reports how
+ * far down the block the title reaches, in pixels, so a hold can be told apart by where it lands.
+ */
 @Composable
 fun FeedAppSectionBlock(
     title: String,
     apps: List<AppInfo>,
     columns: Int,
+    onTitleBottomChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val hostView = LocalView.current
+    val density = LocalDensity.current
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 12.dp, vertical = BlockPadding),
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.titleSmall,
             color = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.padding(start = 8.dp, end = 8.dp, bottom = 4.dp),
+            modifier = Modifier
+                .padding(start = 8.dp, end = 8.dp, bottom = 4.dp)
+                .onSizeChanged { onTitleBottomChange(with(density) { BlockPadding.toPx() } + it.height) },
         )
         apps.chunked(columns).forEach { rowApps ->
             Row(modifier = Modifier.fillMaxWidth()) {

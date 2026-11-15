@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -50,6 +51,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import com.android.launcher3.R
 import kotlin.math.roundToInt
 
+private val BlockPadding = 8.dp
 private val MinWidth = 120.dp
 private val HandleArea = 48.dp
 private val HandleDot = 16.dp
@@ -64,7 +66,8 @@ private enum class Edge { Start, End, Bottom }
  *
  * While [resizing], the widget is covered by a frame whose handles change its size; the result is
  * reported through [onResized] when a handle is let go. The frame's corner button asks for
- * [onRemove].
+ * [onRemove]. [onTitleBottomChange] reports how far down the block the title reaches, in pixels (0
+ * without a title), so a hold can be told apart by where it lands.
  */
 @Composable
 fun FeedWidgetBlock(
@@ -72,6 +75,7 @@ fun FeedWidgetBlock(
     resizing: Boolean,
     onResized: (FeedWidget) -> Unit,
     onRemove: () -> Unit,
+    onTitleBottomChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -97,7 +101,7 @@ fun FeedWidgetBlock(
     BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = 20.dp, vertical = BlockPadding),
         contentAlignment = Alignment.TopCenter,
     ) {
         val fullWidth = maxWidth
@@ -112,8 +116,12 @@ fun FeedWidgetBlock(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                     // Starts where the titles of the app sections start.
-                    modifier = Modifier.padding(bottom = 6.dp),
+                    modifier = Modifier
+                        .padding(bottom = 6.dp)
+                        .onSizeChanged { onTitleBottomChange(with(density) { BlockPadding.toPx() } + it.height) },
                 )
+            } else {
+                SideEffect { onTitleBottomChange(0f) }
             }
             Box(
                 modifier = Modifier

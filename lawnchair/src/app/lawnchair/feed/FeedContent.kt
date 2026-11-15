@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
@@ -33,12 +35,15 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -47,6 +52,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
@@ -55,6 +63,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -85,9 +97,9 @@ private val HorizontalPadding = 20.dp
  * Content of the built-in feed. [contentPadding] keeps it clear of the system bars.
  * [resizingWidgetId] is the widget showing its resize frame; touching anything else ends that.
  *
- * Widgets and app sections are picked up by holding them: dragged on, they change places, and a
- * widget that is let go where it was shows its resize frame. [onReorderingChange] reports while a
- * block is held.
+ * Widgets and app sections are picked up by holding them: dragged on, they change places. Let go
+ * where it was, a block held by its title is renamed and a widget held elsewhere shows its resize
+ * frame. [onReorderingChange] reports while a block is held.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,6 +135,8 @@ fun FeedContent(
     val listState = rememberLazyListState()
     // Set while the question whether to remove this widget is on screen.
     var widgetToRemove by remember { mutableStateOf<FeedWidget?>(null) }
+    // Set while the title of this block is being edited.
+    var renaming by remember { mutableStateOf<RenameTarget?>(null) }
     val reorderState = rememberReorderableLazyListState(listState) { from, to ->
         val fromIndex = blockOrder.indexOf(from.key)
         val toIndex = blockOrder.indexOf(to.key)
@@ -147,6 +161,31 @@ fun FeedContent(
             },
             dismissButton = {
                 TextButton(onClick = { widgetToRemove = null }) { Text(stringResource(android.R.string.cancel)) }
+            },
+        )
+    }
+
+    renaming?.let { target ->
+        RenameDialog(
+            target = target,
+            onDismiss = { renaming = null },
+            onSave = { text ->
+                renaming = null
+                val widget = widgetsByKey[target.key]
+                val section = sectionsByKey[target.key]
+                scope.launch {
+                    if (widget != null) {
+                        // Left as the widget's own name, the title keeps following that name.
+                        val title = text.takeIf { it != widget.label }
+                        prefs2.feedWidgets.set(
+                            prefs2.feedWidgets.get().first().map { if (it.id == widget.id) it.copy(title = title) else it },
+                        )
+                    } else if (section != null) {
+                        prefs2.feedAppSections.set(
+                            prefs2.feedAppSections.get().first().map { if (it.id == section.id) it.copy(title = text) else it },
+                        )
+                    }
+                }
             },
         )
     }
@@ -192,9 +231,16 @@ fun FeedContent(
                         val widget = widgetsByKey[key]
                         val section = sectionsByKey[key]
                         val resizing = widget != null && widget.id == resizingWidgetId
-                        val onHeldRelease by rememberUpdatedState {
+                        var titleBottom by remember { mutableFloatStateOf(0f) }
+                        val onHeldRelease by rememberUpdatedState { heldAt: Offset ->
                             onReorderingChange(false)
-                            if (widget != null) onResizingWidgetChange(widget.id)
+                            // Let go where it was: a title is renamed, a widget shows its resize frame.
+                            val onTitle = titleBottom > 0f && heldAt.y < titleBottom
+                            when {
+                                onTitle && widget != null -> renaming = RenameTarget(key, widget.shownTitle, canBeEmpty = true)
+                                onTitle && section != null -> renaming = RenameTarget(key, section.title, canBeEmpty = false)
+                                widget != null -> onResizingWidgetChange(widget.id)
+                            }
                         }
                         val holdDetector = remember {
                             HoldDragDetector(
@@ -202,7 +248,7 @@ fun FeedContent(
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onReorderingChange(true)
                                 },
-                                onHeldRelease = { onHeldRelease() },
+                                onHeldRelease = { onHeldRelease(it) },
                             )
                         }
                         val blockModifier = Modifier
@@ -234,6 +280,7 @@ fun FeedContent(
                                     }
                                 },
                                 onRemove = { widgetToRemove = widget },
+                                onTitleBottomChange = { titleBottom = it },
                                 modifier = blockModifier,
                             )
 
@@ -244,6 +291,7 @@ fun FeedContent(
                                         title = section.title,
                                         apps = sectionApps,
                                         columns = columns,
+                                        onTitleBottomChange = { titleBottom = it },
                                         modifier = blockModifier,
                                     )
                                 }
@@ -281,6 +329,62 @@ fun FeedContent(
             }
         }
     }
+}
+
+/** A block whose title is being edited: its key in the feed's order and the title to start from. */
+private class RenameTarget(
+    val key: String,
+    val current: String,
+    val canBeEmpty: Boolean,
+)
+
+/** Asks for a new title. An empty one is only accepted where the title may be left out. */
+@Composable
+private fun RenameDialog(
+    target: RenameTarget,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    // The whole title starts out selected, so typing replaces it.
+    var value by remember {
+        mutableStateOf(TextFieldValue(target.current, TextRange(0, target.current.length)))
+    }
+    val focusRequester = remember { FocusRequester() }
+    val text = value.text.trim()
+    val valid = target.canBeEmpty || text.isNotEmpty()
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.feed_rename)) },
+        text = {
+            OutlinedTextField(
+                value = value,
+                onValueChange = { value = it },
+                label = { Text(stringResource(R.string.feed_widgets_title)) },
+                supportingText = if (target.canBeEmpty) {
+                    { Text(stringResource(R.string.feed_widgets_title_hint)) }
+                } else {
+                    null
+                },
+                isError = !valid,
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    imeAction = ImeAction.Done,
+                ),
+                keyboardActions = KeyboardActions(onDone = { if (valid) onSave(text) }),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(focusRequester),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(text) }, enabled = valid) { Text(stringResource(android.R.string.ok)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(android.R.string.cancel)) }
+        },
+    )
 }
 
 @Composable
