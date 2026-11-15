@@ -1,0 +1,26 @@
+package app.lawnchair.feed.widgets
+
+import androidx.compose.runtime.Immutable
+import kotlinx.serialization.Serializable
+
+/**
+ * A widget of another app shown in the built-in feed, stored in
+ * [app.lawnchair.preferences2.PreferenceManager2.feedWidgets].
+ *
+ * @param appWidgetId id the widget is bound under in [FeedWidgetHost].
+ * @param label name of the widget, kept so it can still be listed if its app is removed.
+ * @param heightDp height in the feed; the width is always the width of the feed.
+ */
+@Immutable
+@Serializable
+data class FeedWidget(
+    val id: Long,
+    val appWidgetId: Int,
+    val label: String,
+    val heightDp: Int,
+) {
+    companion object {
+        const val MIN_HEIGHT_DP = 56
+        const val MAX_HEIGHT_DP = 640
+    }
+}

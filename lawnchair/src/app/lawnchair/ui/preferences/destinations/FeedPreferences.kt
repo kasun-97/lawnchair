@@ -33,6 +33,7 @@ fun FeedPreferences(
         modifier = modifier,
     ) {
         PreferenceGroup(heading = stringResource(R.string.feed_content_label)) {
+            FeedWidgetsPreferenceItem()
             FeedSectionsPreferenceItem()
             FeedSourcesPreferenceItem()
         }

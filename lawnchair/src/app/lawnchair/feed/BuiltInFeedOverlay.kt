@@ -10,6 +10,7 @@ import android.window.BackEvent
 import androidx.annotation.RequiresApi
 import app.lawnchair.LawnchairLauncher
 import app.lawnchair.feed.rss.RssRepository
+import app.lawnchair.feed.widgets.FeedWidgetHost
 import com.android.app.animation.Interpolators
 import com.android.launcher3.InsettableFrameLayout
 import com.android.launcher3.LauncherState
@@ -62,6 +63,7 @@ class BuiltInFeedOverlay(private val launcher: LawnchairLauncher) :
     }
 
     private val backHandler by lazy(LazyThreadSafetyMode.NONE) { FeedBackHandler() }
+    private val widgetHost by lazy(LazyThreadSafetyMode.NONE) { FeedWidgetHost.getInstance(launcher) }
 
     fun attach() {
         if (panel != null) return
@@ -74,6 +76,7 @@ class BuiltInFeedOverlay(private val launcher: LawnchairLauncher) :
         launcher.stateManager.addStateListener(stateListener)
         if (Utilities.ATLEAST_U) launcher.addBackHandler(backHandler)
         applyProgress(0f)
+        widgetHost.startListening()
     }
 
     fun detach() {
@@ -83,6 +86,17 @@ class BuiltInFeedOverlay(private val launcher: LawnchairLauncher) :
         if (Utilities.ATLEAST_U) launcher.removeBackHandler(backHandler)
         launcher.rootView.removeView(view)
         panel = null
+        widgetHost.stopListening()
+        widgetHost.releaseViews(launcher)
+    }
+
+    /** Widgets only need updates while the launcher can be seen. */
+    fun onActivityStarted() {
+        if (panel != null) widgetHost.startListening()
+    }
+
+    fun onActivityStopped() {
+        if (panel != null) widgetHost.stopListening()
     }
 
     fun open(animate: Boolean) = settle(1f, animate)

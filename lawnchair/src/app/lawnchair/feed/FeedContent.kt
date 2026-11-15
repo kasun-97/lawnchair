@@ -50,6 +50,7 @@ import app.lawnchair.feed.rss.RssRepository
 import app.lawnchair.feed.sections.FeedAppSectionBlock
 import app.lawnchair.feed.sections.launcherAppsState
 import app.lawnchair.feed.sections.resolveApps
+import app.lawnchair.feed.widgets.FeedWidgetBlock
 import app.lawnchair.launcherNullable
 import app.lawnchair.preferences2.asState
 import app.lawnchair.preferences2.preferenceManager2
@@ -72,6 +73,7 @@ fun FeedContent(
     val state by repository.state.collectAsStateWithLifecycle()
     val prefs2 = preferenceManager2()
     val sources by prefs2.feedSources.asState()
+    val widgets by prefs2.feedWidgets.asState()
     val sections by prefs2.feedAppSections.asState()
     val apps by launcherAppsState()
     val columns = remember(context) {
@@ -102,6 +104,9 @@ fun FeedContent(
                 item(key = "header") {
                     FeedHeader(onOpenSettings = { openFeedSettings(context) })
                 }
+                items(widgets, key = { "widget:${it.id}" }) { widget ->
+                    FeedWidgetBlock(widget)
+                }
                 items(sections, key = { "section:${it.id}" }) { section ->
                     val sectionApps = remember(section, apps) { section.resolveApps(apps) }
                     if (sectionApps.isNotEmpty()) {
@@ -109,7 +114,7 @@ fun FeedContent(
                     }
                 }
                 when {
-                    sources.isEmpty() -> if (sections.isEmpty()) {
+                    sources.isEmpty() -> if (sections.isEmpty() && widgets.isEmpty()) {
                         item(key = "message") {
                             FeedMessage(
                                 text = stringResource(R.string.feed_empty),

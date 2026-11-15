@@ -145,10 +145,19 @@
 
     <!-- Built-in feed -->
     <string name="feed_built_in">Built-in feed</string>
-    <string name="feed_built_in_description">App sections and news sources</string>
+    <string name="feed_built_in_description">Widgets, app sections and news sources</string>
     <string name="feed_content_label">Content</string>
-    <string name="feed_empty">Your feed is empty. Add app sections or news sources to fill it.</string>
+    <string name="feed_empty">Your feed is empty. Add widgets, app sections or news sources to fill it.</string>
     <string name="feed_set_up">Set up feed</string>
+    <string name="feed_widgets_label">Widgets</string>
+    <string name="feed_widgets_description">Widgets from other apps shown in the built-in feed</string>
+    <string name="feed_widgets_add">Add widget</string>
+    <string name="feed_widgets_remove">Remove widget</string>
+    <string name="feed_widgets_empty">No widgets yet.</string>
+    <string name="feed_widgets_height">Height</string>
+    <string name="feed_widgets_height_value">%1$d dp</string>
+    <string name="feed_widgets_size">%1$d × %2$d</string>
+    <string name="feed_widgets_add_failed">Widget wasn\'t added</string>
     <string name="feed_sections_label">App sections</string>
     <string name="feed_sections_description">Titled groups of apps shown in the built-in feed</string>
     <string name="feed_sections_add">Add section</string>

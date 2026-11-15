@@ -25,6 +25,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.material3.windowsizeclass.ExperimentalMaterial3WindowSizeClassApi
 import androidx.compose.material3.windowsizeclass.calculateWindowSizeClass
 import androidx.core.content.edit
+import app.lawnchair.feed.widgets.FeedWidgetHost
 import app.lawnchair.smartspace.provider.OnboardingProvider
 import app.lawnchair.ui.preferences.navigation.PreferenceRoute
 import app.lawnchair.ui.theme.EdgeToEdge
@@ -64,6 +65,14 @@ class PreferenceActivity : ComponentActivity() {
                 true,
             )
         }
+    }
+
+    @Deprecated("Only used for screens started by an AppWidgetHost, which predates the result API")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        @Suppress("DEPRECATION")
+        super.onActivityResult(requestCode, resultCode, data)
+        // A widget being added to the built-in feed may show its own set-up screen.
+        FeedWidgetHost.getInstance(this).onActivityResult(requestCode, resultCode)
     }
 
     companion object {

@@ -165,6 +165,14 @@ data object HomeScreenFeedSections : PreferenceRoute, PreferenceDeepLink {
 data class HomeScreenFeedSectionEditor(val id: Long) : PreferenceRoute
 
 @Serializable
+data object HomeScreenFeedWidgets : PreferenceRoute, PreferenceDeepLink {
+    override val deepLink = "$URI/feed-widgets"
+}
+
+@Serializable
+data object HomeScreenFeedWidgetPicker : PreferenceRoute
+
+@Serializable
 data object HomeScreenFeedSources : PreferenceRoute, PreferenceDeepLink {
     override val deepLink = "$URI/feed-sources"
 }

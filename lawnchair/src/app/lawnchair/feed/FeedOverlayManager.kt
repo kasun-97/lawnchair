@@ -89,13 +89,19 @@ class FeedOverlayManager(private val launcher: LawnchairLauncher) : LauncherOver
         if (useBuiltIn) builtIn.close(animate = duration > 0, duration = duration.toLong()) else external.hideOverlay(duration)
     }
 
-    override fun onActivityStarted() = external.onActivityStarted()
+    override fun onActivityStarted() {
+        external.onActivityStarted()
+        builtIn.onActivityStarted()
+    }
 
     override fun onActivityResumed() = external.onActivityResumed()
 
     override fun onActivityPaused() = external.onActivityPaused()
 
-    override fun onActivityStopped() = external.onActivityStopped()
+    override fun onActivityStopped() {
+        external.onActivityStopped()
+        builtIn.onActivityStopped()
+    }
 
     override fun onActivityDestroyed() {
         external.onActivityDestroyed()
