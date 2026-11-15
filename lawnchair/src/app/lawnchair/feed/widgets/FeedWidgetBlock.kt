@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -52,15 +51,13 @@ private enum class Edge { Start, End, Bottom }
  * One widget of the feed, up to its set height and across the feed unless a width is set. Draws
  * nothing once the widget is gone.
  *
- * Holding the widget asks for [onResizeStart]. While [resizing], the widget is covered by a frame
- * whose handles change its size; the result is reported through [onResized] when a handle is let
- * go.
+ * While [resizing], the widget is covered by a frame whose handles change its size; the result is
+ * reported through [onResized] when a handle is let go.
  */
 @Composable
 fun FeedWidgetBlock(
     widget: FeedWidget,
     resizing: Boolean,
-    onResizeStart: () -> Unit,
     onResized: (FeedWidget) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -77,12 +74,6 @@ fun FeedWidgetBlock(
             16.dp
         },
     )
-
-    val currentOnResizeStart by rememberUpdatedState(onResizeStart)
-    DisposableEffect(view) {
-        (view as? FeedWidgetHostView)?.onLongPress = { currentOnResizeStart() }
-        onDispose { (view as? FeedWidgetHostView)?.onLongPress = null }
-    }
 
     // Shown until the saved size arrives, so letting go of a handle does not flash the old size.
     var shown by remember(widget) { mutableStateOf(widget) }

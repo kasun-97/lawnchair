@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.lawnchair.feed.FeedBlocks
 import app.lawnchair.feed.widgets.FeedWidget
 import app.lawnchair.feed.widgets.FeedWidgetHost
 import app.lawnchair.preferences.getAdapter
@@ -94,8 +95,13 @@ fun FeedWidgetsPreferences(
 ) {
     val context = LocalContext.current
     val host = remember { FeedWidgetHost.getInstance(context) }
-    val widgetsAdapter = preferenceManager2().feedWidgets.getAdapter()
-    val widgets = widgetsAdapter.state.value
+    val prefs2 = preferenceManager2()
+    val widgetsAdapter = prefs2.feedWidgets.getAdapter()
+    val orderAdapter = prefs2.feedBlockOrder.getAdapter()
+    val sections = prefs2.feedAppSections.getAdapter().state.value
+    // Listed in the order they have in the feed, where app sections may sit between them.
+    val order = FeedBlocks.resolveOrder(orderAdapter.state.value, widgetsAdapter.state.value, sections)
+    val widgets = widgetsAdapter.state.value.sortedBy { order.indexOf(FeedBlocks.widgetKey(it.id)) }
     val navController = LocalNavController.current
     val bottomSheetHandler = bottomSheetHandler
     val haptics = MSDLPlayerWrapper.INSTANCE.get(context)
@@ -136,9 +142,9 @@ fun FeedWidgetsPreferences(
                 items = widgets,
                 defaultList = widgets,
                 onOrderChange = { reordered ->
-                    val byId = widgetsAdapter.state.value.associateBy { it.id }
-                    // Keep the latest version of each widget; drop ids that no longer exist.
-                    widgetsAdapter.onChange(reordered.mapNotNull { byId[it.id] })
+                    orderAdapter.onChange(
+                        FeedBlocks.withKindOrder(order, FeedBlocks.WIDGET, reordered.map { FeedBlocks.widgetKey(it.id) }),
+                    )
                 },
             ) { widget, _, _ ->
                 val interactionSource = remember { MutableInteractionSource() }

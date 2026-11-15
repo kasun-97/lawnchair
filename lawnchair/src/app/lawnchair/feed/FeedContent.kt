@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
@@ -36,14 +37,20 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -65,12 +72,18 @@ import coil.compose.AsyncImage
 import com.android.launcher3.R
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import sh.calvin.reorderable.ReorderableItem
+import sh.calvin.reorderable.rememberReorderableLazyListState
 
 private val HorizontalPadding = 20.dp
 
 /**
  * Content of the built-in feed. [contentPadding] keeps it clear of the system bars.
  * [resizingWidgetId] is the widget showing its resize frame; touching anything else ends that.
+ *
+ * Widgets and app sections are picked up by holding them: dragged on, they change places, and a
+ * widget that is let go where it was shows its resize frame. [onReorderingChange] reports while a
+ * block is held.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +91,7 @@ fun FeedContent(
     contentPadding: PaddingValues,
     resizingWidgetId: Long?,
     onResizingWidgetChange: (Long?) -> Unit,
+    onReorderingChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -93,6 +107,23 @@ fun FeedContent(
         (context.launcherNullable?.deviceProfile?.numShownAllAppsColumns ?: 0).takeIf { it > 0 } ?: 4
     }
     val layoutDirection = LocalLayoutDirection.current
+    val haptics = LocalHapticFeedback.current
+
+    val savedOrder by prefs2.feedBlockOrder.asState()
+    // Follows the drag at once; the saved order catches up when the block is dropped.
+    var blockOrder by remember(savedOrder, widgets, sections) {
+        mutableStateOf(FeedBlocks.resolveOrder(savedOrder, widgets, sections))
+    }
+    val widgetsByKey = remember(widgets) { widgets.associateBy { FeedBlocks.widgetKey(it.id) } }
+    val sectionsByKey = remember(sections) { sections.associateBy { FeedBlocks.sectionKey(it.id) } }
+    val listState = rememberLazyListState()
+    val reorderState = rememberReorderableLazyListState(listState) { from, to ->
+        val fromIndex = blockOrder.indexOf(from.key)
+        val toIndex = blockOrder.indexOf(to.key)
+        if (fromIndex >= 0 && toIndex >= 0) {
+            blockOrder = blockOrder.toMutableList().apply { add(toIndex, removeAt(fromIndex)) }
+        }
+    }
 
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -124,29 +155,73 @@ fun FeedContent(
                             }
                         }
                     },
+                state = listState,
                 contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding() + 16.dp),
             ) {
                 item(key = "header") {
                     FeedHeader(onOpenSettings = { openFeedSettings(context) })
                 }
-                items(widgets, key = { "widget:${it.id}" }) { widget ->
-                    FeedWidgetBlock(
-                        widget = widget,
-                        resizing = widget.id == resizingWidgetId,
-                        onResizeStart = { onResizingWidgetChange(widget.id) },
-                        onResized = { resized ->
-                            scope.launch {
-                                prefs2.feedWidgets.set(
-                                    prefs2.feedWidgets.get().first().map { if (it.id == resized.id) resized else it },
-                                )
+                items(blockOrder, key = { it }) { key ->
+                    ReorderableItem(reorderState, key = key) { isDragging ->
+                        val widget = widgetsByKey[key]
+                        val section = sectionsByKey[key]
+                        val resizing = widget != null && widget.id == resizingWidgetId
+                        val onHeldRelease by rememberUpdatedState {
+                            onReorderingChange(false)
+                            if (widget != null) onResizingWidgetChange(widget.id)
+                        }
+                        val holdDetector = remember {
+                            HoldDragDetector(
+                                onHeld = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onReorderingChange(true)
+                                },
+                                onHeldRelease = { onHeldRelease() },
+                            )
+                        }
+                        val blockModifier = Modifier
+                            .draggableHandle(
+                                // The handles of the resize frame are dragged instead.
+                                enabled = !resizing,
+                                onDragStopped = {
+                                    onReorderingChange(false)
+                                    scope.launch { prefs2.feedBlockOrder.set(blockOrder) }
+                                },
+                                dragGestureDetector = holdDetector,
+                            )
+                            .graphicsLayer {
+                                if (isDragging) {
+                                    scaleX = 1.02f
+                                    scaleY = 1.02f
+                                    alpha = 0.92f
+                                }
                             }
-                        },
-                    )
-                }
-                items(sections, key = { "section:${it.id}" }) { section ->
-                    val sectionApps = remember(section, apps) { section.resolveApps(apps) }
-                    if (sectionApps.isNotEmpty()) {
-                        FeedAppSectionBlock(title = section.title, apps = sectionApps, columns = columns)
+                        when {
+                            widget != null -> FeedWidgetBlock(
+                                widget = widget,
+                                resizing = resizing,
+                                onResized = { resized ->
+                                    scope.launch {
+                                        prefs2.feedWidgets.set(
+                                            prefs2.feedWidgets.get().first().map { if (it.id == resized.id) resized else it },
+                                        )
+                                    }
+                                },
+                                modifier = blockModifier,
+                            )
+
+                            section != null -> {
+                                val sectionApps = remember(section, apps) { section.resolveApps(apps) }
+                                if (sectionApps.isNotEmpty()) {
+                                    FeedAppSectionBlock(
+                                        title = section.title,
+                                        apps = sectionApps,
+                                        columns = columns,
+                                        modifier = blockModifier,
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
                 when {

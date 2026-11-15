@@ -20,6 +20,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import app.lawnchair.feed.FeedBlocks
 import app.lawnchair.feed.sections.FeedAppSection
 import app.lawnchair.feed.sections.FeedAppSections
 import app.lawnchair.preferences.PreferenceAdapter
@@ -71,8 +72,13 @@ fun FeedSectionsPreferenceItem(
 fun FeedSectionsPreferences(
     modifier: Modifier = Modifier,
 ) {
-    val sectionsAdapter = preferenceManager2().feedAppSections.getAdapter()
-    val sections = sectionsAdapter.state.value
+    val prefs2 = preferenceManager2()
+    val sectionsAdapter = prefs2.feedAppSections.getAdapter()
+    val orderAdapter = prefs2.feedBlockOrder.getAdapter()
+    val widgets = prefs2.feedWidgets.getAdapter().state.value
+    // Listed in the order they have in the feed, where widgets may sit between them.
+    val order = FeedBlocks.resolveOrder(orderAdapter.state.value, widgets, sectionsAdapter.state.value)
+    val sections = sectionsAdapter.state.value.sortedBy { order.indexOf(FeedBlocks.sectionKey(it.id)) }
     val navController = LocalNavController.current
     val bottomSheetHandler = bottomSheetHandler
     val haptics = MSDLPlayerWrapper.INSTANCE.get(LocalContext.current)
@@ -125,9 +131,9 @@ fun FeedSectionsPreferences(
                 items = sections,
                 defaultList = sections,
                 onOrderChange = { reordered ->
-                    val byId = sectionsAdapter.state.value.associateBy { it.id }
-                    // Keep the latest version of each section; drop ids that no longer exist.
-                    sectionsAdapter.onChange(reordered.mapNotNull { byId[it.id] })
+                    orderAdapter.onChange(
+                        FeedBlocks.withKindOrder(order, FeedBlocks.SECTION, reordered.map { FeedBlocks.sectionKey(it.id) }),
+                    )
                 },
             ) { section, _, _ ->
                 val interactionSource = remember { MutableInteractionSource() }

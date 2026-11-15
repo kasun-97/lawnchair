@@ -61,6 +61,9 @@ class FeedPanelView(
     /** The widget that currently shows its resize frame, if any. */
     private var resizingWidgetId by mutableStateOf<Long?>(null)
 
+    /** Whether a block is being held or dragged to another place. */
+    private var reordering = false
+
     private var downX = 0f
     private var downY = 0f
     private var dragging = false
@@ -96,6 +99,7 @@ class FeedPanelView(
                                 contentPadding = padding,
                                 resizingWidgetId = resizingWidgetId,
                                 onResizingWidgetChange = { resizingWidgetId = it },
+                                onReorderingChange = { reordering = it },
                             )
                         }
                     }
@@ -152,8 +156,8 @@ class FeedPanelView(
     }
 
     private fun maybeStartDrag(ev: MotionEvent) {
-        // The resize handles are dragged sideways too.
-        if (dragging || resizingWidgetId != null) return
+        // Resize handles and held blocks are dragged sideways too.
+        if (dragging || reordering || resizingWidgetId != null) return
         val dx = ev.rawX - downX
         val dy = ev.rawY - downY
         val closing = towardsOpen(dx) < 0

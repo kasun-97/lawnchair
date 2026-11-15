@@ -725,13 +725,19 @@ class PreferenceManager2 @Inject constructor(
         defaultValue = context.resources.getBoolean(R.bool.config_default_enable_feed),
     )
 
-    /** Widgets of the built-in feed, in display order. */
+    /** Order of the widgets and app sections in the built-in feed, see [app.lawnchair.feed.FeedBlocks]. */
+    val feedBlockOrder = serializablePreference<List<String>>(
+        key = stringPreferencesKey("feed_block_order"),
+        defaultValue = emptyList(),
+    )
+
+    /** Widgets of the built-in feed. */
     val feedWidgets = serializablePreference<List<FeedWidget>>(
         key = stringPreferencesKey("feed_widgets"),
         defaultValue = emptyList(),
     )
 
-    /** App sections of the built-in feed, in display order. */
+    /** App sections of the built-in feed. */
     val feedAppSections = serializablePreference<List<FeedAppSection>>(
         key = stringPreferencesKey("feed_app_sections"),
         defaultValue = emptyList(),
