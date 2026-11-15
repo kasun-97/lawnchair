@@ -68,7 +68,7 @@ class BuiltInFeedOverlay(private val launcher: LawnchairLauncher) :
     fun attach() {
         if (panel != null) return
         val root = launcher.rootView
-        val view = FeedPanelView(launcher, this)
+        val view = FeedPanelView(launcher, launcher, this)
         view.visibility = View.INVISIBLE
         root.addView(view, InsettableFrameLayout.LayoutParams(MATCH_PARENT, MATCH_PARENT))
         view.setInsets(root.insets)

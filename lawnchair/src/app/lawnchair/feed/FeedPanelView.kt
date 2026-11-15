@@ -17,6 +17,10 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.ViewCompositionStrategy
+import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
+import androidx.lifecycle.setViewTreeLifecycleOwner
+import androidx.savedstate.SavedStateRegistryOwner
+import androidx.savedstate.setViewTreeSavedStateRegistryOwner
 import app.lawnchair.ui.theme.LawnchairTheme
 import app.lawnchair.util.ProvideLifecycleState
 import com.android.launcher3.Insettable
@@ -29,10 +33,15 @@ import kotlin.math.abs
  * It sits in the launcher's root view, beside the drag layer, because the drag layer itself
  * slides away and fades while a feed is open. The panel only handles the swipe that closes it;
  * [Controller] owns the open/close progress.
+ *
+ * Its content follows the lifecycle of [owner], the launcher it is made for, and not whatever the
+ * window says: a launcher recreated on screen takes over the window of the one before it, which
+ * names that launcher, now destroyed, until the new one has been created.
  */
 @SuppressLint("ViewConstructor")
 class FeedPanelView(
     context: Context,
+    owner: SavedStateRegistryOwner,
     private val controller: Controller,
 ) : FrameLayout(context),
     Insettable {
@@ -74,9 +83,13 @@ class FeedPanelView(
     init {
         // Nothing behind the feed may be touched through its empty areas.
         isClickable = true
+        setViewTreeLifecycleOwner(owner)
+        setViewTreeSavedStateRegistryOwner(owner)
         addView(
             ComposeView(context).apply {
                 setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
+                // The window's own recomposer may have been started for the launcher before.
+                setParentCompositionContext(createLifecycleAwareWindowRecomposer(lifecycle = owner.lifecycle))
                 setContent {
                     LawnchairTheme {
                         ProvideLifecycleState {
