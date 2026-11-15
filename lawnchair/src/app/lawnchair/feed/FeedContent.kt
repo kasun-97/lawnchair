@@ -5,6 +5,9 @@ import android.content.Intent
 import android.net.Uri
 import android.text.format.DateUtils
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,9 +37,11 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -58,16 +63,24 @@ import app.lawnchair.ui.preferences.PreferenceActivity
 import app.lawnchair.ui.preferences.navigation.HomeScreenFeed
 import coil.compose.AsyncImage
 import com.android.launcher3.R
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 private val HorizontalPadding = 20.dp
 
-/** Content of the built-in feed. [contentPadding] keeps it clear of the system bars. */
+/**
+ * Content of the built-in feed. [contentPadding] keeps it clear of the system bars.
+ * [resizingWidgetId] is the widget showing its resize frame; touching anything else ends that.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FeedContent(
     contentPadding: PaddingValues,
+    resizingWidgetId: Long?,
+    onResizingWidgetChange: (Long?) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val repository = remember { RssRepository.getInstance(context) }
     val state by repository.state.collectAsStateWithLifecycle()
@@ -98,14 +111,37 @@ fun FeedContent(
                 ),
         ) {
             LazyColumn(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(resizingWidgetId) {
+                        if (resizingWidgetId == null) return@pointerInput
+                        // Runs after the content: the resize frame has consumed touches on it.
+                        // A tap anywhere else ends resizing; scrolling the feed does not.
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            if (!down.isConsumed && waitForUpOrCancellation() != null) {
+                                onResizingWidgetChange(null)
+                            }
+                        }
+                    },
                 contentPadding = PaddingValues(bottom = contentPadding.calculateBottomPadding() + 16.dp),
             ) {
                 item(key = "header") {
                     FeedHeader(onOpenSettings = { openFeedSettings(context) })
                 }
                 items(widgets, key = { "widget:${it.id}" }) { widget ->
-                    FeedWidgetBlock(widget)
+                    FeedWidgetBlock(
+                        widget = widget,
+                        resizing = widget.id == resizingWidgetId,
+                        onResizeStart = { onResizingWidgetChange(widget.id) },
+                        onResized = { resized ->
+                            scope.launch {
+                                prefs2.feedWidgets.set(
+                                    prefs2.feedWidgets.get().first().map { if (it.id == resized.id) resized else it },
+                                )
+                            }
+                        },
+                    )
                 }
                 items(sections, key = { "section:${it.id}" }) { section ->
                     val sectionApps = remember(section, apps) { section.resolveApps(apps) }

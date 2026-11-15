@@ -5,29 +5,78 @@ import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.SizeF
 import android.view.Gravity
+import android.view.HapticFeedbackConstants
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.AbsListView
 import android.widget.AdapterView
+import kotlin.math.abs
 
 /**
- * Host view of a widget in the built-in feed. Tells the widget how big it is drawn, and lets a
- * list or stack inside the widget keep the gesture that starts on it instead of the feed.
+ * Host view of a widget in the built-in feed. Tells the widget how big it is drawn, lets a list
+ * or stack inside the widget keep the gesture that starts on it instead of the feed, and reports
+ * when the widget is held.
  */
 class FeedWidgetHostView(context: Context) : AppWidgetHostView(context) {
 
     private var reportedWidth = 0
     private var reportedHeight = 0
 
+    /** Called when the widget is held without moving; the touch is then taken from the widget. */
+    var onLongPress: (() -> Unit)? = null
+
+    private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
+    private var downX = 0f
+    private var downY = 0f
+    private var longPressed = false
+    private val longPress = Runnable {
+        val listener = onLongPress ?: return@Runnable
+        longPressed = true
+        // Whatever inside the widget was tracking this touch must not count it as a tap.
+        val now = SystemClock.uptimeMillis()
+        val cancel = MotionEvent.obtain(now, now, MotionEvent.ACTION_CANCEL, downX, downY, 0)
+        super.dispatchTouchEvent(cancel)
+        cancel.recycle()
+        performHapticFeedback(HapticFeedbackConstants.LONG_PRESS)
+        listener()
+    }
+
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        if (ev.actionMasked == MotionEvent.ACTION_DOWN && hasScrollableAt(this, ev.x, ev.y)) {
-            // Otherwise the feed (vertical) or its close swipe (horizontal) would win the drag.
-            parent?.requestDisallowInterceptTouchEvent(true)
+        when (ev.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                longPressed = false
+                downX = ev.x
+                downY = ev.y
+                removeCallbacks(longPress)
+                postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
+                if (hasScrollableAt(this, ev.x, ev.y)) {
+                    // Otherwise the feed (vertical) or its close swipe (horizontal) would win
+                    // the drag.
+                    parent?.requestDisallowInterceptTouchEvent(true)
+                }
+            }
+
+            MotionEvent.ACTION_MOVE -> {
+                if (abs(ev.x - downX) > touchSlop || abs(ev.y - downY) > touchSlop) removeCallbacks(longPress)
+            }
+
+            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> removeCallbacks(longPress)
         }
-        return super.dispatchTouchEvent(ev)
+        if (longPressed) return true
+        super.dispatchTouchEvent(ev)
+        // Always claimed, so the end of the touch is seen here even over a part of the widget
+        // that does not react to touches; the feed can still take the drag for scrolling.
+        return true
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        removeCallbacks(longPress)
     }
 
     override fun setAppWidget(appWidgetId: Int, info: AppWidgetProviderInfo?) {

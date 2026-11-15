@@ -58,6 +58,9 @@ class FeedPanelView(
     var isBackgroundLight = false
         private set
 
+    /** The widget that currently shows its resize frame, if any. */
+    private var resizingWidgetId by mutableStateOf<Long?>(null)
+
     private var downX = 0f
     private var downY = 0f
     private var dragging = false
@@ -89,13 +92,24 @@ class FeedPanelView(
                                     bottom = systemInsets.bottom.toDp(),
                                 )
                             }
-                            FeedContent(contentPadding = padding)
+                            FeedContent(
+                                contentPadding = padding,
+                                resizingWidgetId = resizingWidgetId,
+                                onResizingWidgetChange = { resizingWidgetId = it },
+                            )
                         }
                     }
                 }
             },
             LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT),
         )
+    }
+
+    /** Leaves a mode the feed is in, such as resizing a widget. @return whether there was one. */
+    fun leaveMode(): Boolean {
+        if (resizingWidgetId == null) return false
+        resizingWidgetId = null
+        return true
     }
 
     // The background runs edge to edge; the content is padded instead of the view.
@@ -138,7 +152,8 @@ class FeedPanelView(
     }
 
     private fun maybeStartDrag(ev: MotionEvent) {
-        if (dragging) return
+        // The resize handles are dragged sideways too.
+        if (dragging || resizingWidgetId != null) return
         val dx = ev.rawX - downX
         val dy = ev.rawY - downY
         val closing = towardsOpen(dx) < 0

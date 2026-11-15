@@ -196,6 +196,7 @@ class BuiltInFeedOverlay(private val launcher: LawnchairLauncher) :
             RssRepository.getInstance(launcher).refresh(force = false)
         }
         progress = newProgress
+        if (newProgress == 0f) panel?.leaveMode()
         panel?.let { view ->
             view.visibility = if (newProgress > 0f) View.VISIBLE else View.INVISIBLE
             // The feed page enters from the side the home screen leaves towards.
@@ -230,7 +231,7 @@ class BuiltInFeedOverlay(private val launcher: LawnchairLauncher) :
         override fun onBackCancelled() = Unit
 
         override fun onBackInvoked() {
-            close(animate = true)
+            if (panel?.leaveMode() != true) close(animate = true)
         }
     }
 

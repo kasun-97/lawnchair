@@ -2,52 +2,239 @@ package app.lawnchair.feed.widgets
 
 import android.os.Build
 import android.view.ViewGroup
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import kotlin.math.roundToInt
+
+private val MinWidth = 120.dp
+private val HandleArea = 48.dp
+private val HandleDot = 16.dp
+
+/** Which edge of the resize frame a handle sits on. */
+private enum class Edge { Start, End, Bottom }
 
 /**
- * One widget of the feed, across its full width and up to its set height. Draws nothing once the
- * widget is gone.
+ * One widget of the feed, up to its set height and across the feed unless a width is set. Draws
+ * nothing once the widget is gone.
+ *
+ * Holding the widget asks for [onResizeStart]. While [resizing], the widget is covered by a frame
+ * whose handles change its size; the result is reported through [onResized] when a handle is let
+ * go.
  */
 @Composable
 fun FeedWidgetBlock(
     widget: FeedWidget,
+    resizing: Boolean,
+    onResizeStart: () -> Unit,
+    onResized: (FeedWidget) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val density = LocalDensity.current
     val host = remember { FeedWidgetHost.getInstance(context) }
     // The view is kept by the host, so scrolling a widget out of the feed and back does not
     // inflate it again.
     val view = remember(widget.appWidgetId) { host.getView(context, widget.appWidgetId) } ?: return
-    val cornerRadius = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        dimensionResource(android.R.dimen.system_app_widget_background_radius)
-    } else {
-        16.dp
-    }
-    AndroidView(
-        factory = {
-            (view.parent as? ViewGroup)?.removeView(view)
-            view.layoutParams = ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT,
-            )
-            view
+    val shape = RoundedCornerShape(
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            dimensionResource(android.R.dimen.system_app_widget_background_radius)
+        } else {
+            16.dp
         },
+    )
+
+    val currentOnResizeStart by rememberUpdatedState(onResizeStart)
+    DisposableEffect(view) {
+        (view as? FeedWidgetHostView)?.onLongPress = { currentOnResizeStart() }
+        onDispose { (view as? FeedWidgetHostView)?.onLongPress = null }
+    }
+
+    // Shown until the saved size arrives, so letting go of a handle does not flash the old size.
+    var shown by remember(widget) { mutableStateOf(widget) }
+    // Set while a handle is held: the frame then follows the finger exactly.
+    var dragSize by remember { mutableStateOf<DpSize?>(null) }
+    var blockHeightPx by remember { mutableStateOf(0) }
+
+    BoxWithConstraints(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 20.dp, vertical = 8.dp)
-            // An upper limit: FeedWidgetHostView takes less for a widget with a height of its own.
-            .heightIn(max = widget.heightDp.dp)
-            .clip(RoundedCornerShape(cornerRadius)),
-    )
+            .padding(horizontal = 20.dp, vertical = 8.dp),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        val fullWidth = maxWidth
+        val setWidth = if (shown.widthDp > 0) shown.widthDp.dp.coerceAtMost(fullWidth) else fullWidth
+        val drag = dragSize
+        Box(
+            modifier = Modifier
+                .width(drag?.width ?: setWidth)
+                .then(if (drag != null) Modifier.height(drag.height) else Modifier)
+                .onSizeChanged { blockHeightPx = it.height },
+        ) {
+            AndroidView(
+                factory = {
+                    (view.parent as? ViewGroup)?.removeView(view)
+                    view.layoutParams = ViewGroup.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
+                    view
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    // An upper limit: FeedWidgetHostView takes less for a widget with a height of
+                    // its own.
+                    .heightIn(max = drag?.height ?: shown.heightDp.dp)
+                    .clip(shape),
+            )
+            if (resizing) {
+                ResizeFrame(
+                    shape = shape,
+                    onDragStart = {
+                        dragSize = DpSize(setWidth, with(density) { blockHeightPx.toDp() })
+                    },
+                    onDrag = { edge, amount ->
+                        dragSize = dragSize?.let { size ->
+                            when (edge) {
+                                Edge.Bottom -> size.copy(
+                                    height = (size.height + amount)
+                                        .coerceIn(FeedWidget.MIN_HEIGHT_DP.dp, FeedWidget.MAX_HEIGHT_DP.dp),
+                                )
+
+                                // The widget stays centred, so each side moves by the same amount.
+                                else -> size.copy(
+                                    width = (size.width + amount * 2).coerceIn(MinWidth.coerceAtMost(fullWidth), fullWidth),
+                                )
+                            }
+                        }
+                    },
+                    onDragEnd = {
+                        dragSize?.let { size ->
+                            val resized = shown.copy(
+                                heightDp = size.height.value.roundToInt(),
+                                // Zero stands for the full width, whatever that is on this screen.
+                                widthDp = if (size.width >= fullWidth - 8.dp) 0 else size.width.value.roundToInt(),
+                            )
+                            shown = resized
+                            onResized(resized)
+                        }
+                        dragSize = null
+                    },
+                    modifier = Modifier.matchParentSize(),
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Outline with a handle on the bottom edge (height) and one on each side (width). It also takes
+ * every touch on the widget beneath it, so the widget cannot be operated by accident.
+ */
+@Composable
+private fun ResizeFrame(
+    shape: RoundedCornerShape,
+    onDragStart: () -> Unit,
+    onDrag: (edge: Edge, amount: Dp) -> Unit,
+    onDragEnd: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier
+            .border(2.dp, MaterialTheme.colorScheme.primary, shape)
+            .pointerInput(Unit) {
+                awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() }
+            },
+    ) {
+        ResizeHandle(Edge.Start, onDragStart, onDrag, onDragEnd)
+        ResizeHandle(Edge.End, onDragStart, onDrag, onDragEnd)
+        ResizeHandle(Edge.Bottom, onDragStart, onDrag, onDragEnd)
+    }
+}
+
+@Composable
+private fun BoxScope.ResizeHandle(
+    edge: Edge,
+    onDragStart: () -> Unit,
+    onDrag: (edge: Edge, amount: Dp) -> Unit,
+    onDragEnd: () -> Unit,
+) {
+    val currentOnDragStart by rememberUpdatedState(onDragStart)
+    val currentOnDrag by rememberUpdatedState(onDrag)
+    val currentOnDragEnd by rememberUpdatedState(onDragEnd)
+    // The touch area lies inside the frame; the dot is drawn centred on the frame's edge.
+    val (areaAlignment, dotAlignment) = when (edge) {
+        Edge.Start -> Alignment.CenterStart to Alignment.CenterStart
+        Edge.End -> Alignment.CenterEnd to Alignment.CenterEnd
+        Edge.Bottom -> Alignment.BottomCenter to Alignment.BottomCenter
+    }
+    Box(
+        modifier = Modifier
+            .align(areaAlignment)
+            .size(HandleArea)
+            .pointerInput(edge) {
+                detectDragGestures(
+                    onDragStart = { currentOnDragStart() },
+                    onDragEnd = { currentOnDragEnd() },
+                    onDragCancel = { currentOnDragEnd() },
+                ) { change, dragAmount ->
+                    change.consume()
+                    val amount = when (edge) {
+                        Edge.Start -> -dragAmount.x
+                        Edge.End -> dragAmount.x
+                        Edge.Bottom -> dragAmount.y
+                    }
+                    currentOnDrag(edge, amount.toDp())
+                }
+            },
+    ) {
+        Box(
+            modifier = Modifier
+                .align(dotAlignment)
+                .offset(
+                    x = when (edge) {
+                        Edge.Start -> -HandleDot / 2
+                        Edge.End -> HandleDot / 2
+                        Edge.Bottom -> 0.dp
+                    },
+                    y = if (edge == Edge.Bottom) HandleDot / 2 else 0.dp,
+                )
+                .size(HandleDot)
+                .background(MaterialTheme.colorScheme.primary, CircleShape),
+        )
+    }
 }

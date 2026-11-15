@@ -10,7 +10,8 @@ import kotlinx.serialization.Serializable
  * @param appWidgetId id the widget is bound under in [FeedWidgetHost].
  * @param label name of the widget, kept so it can still be listed if its app is removed.
  * @param heightDp height in the feed, or the most it may take if the widget has a height of its
- * own; the width is always the width of the feed.
+ * own.
+ * @param widthDp width in the feed, centred; 0 for the full width of the feed.
  */
 @Immutable
 @Serializable
@@ -19,6 +20,7 @@ data class FeedWidget(
     val appWidgetId: Int,
     val label: String,
     val heightDp: Int,
+    val widthDp: Int = 0,
 ) {
     companion object {
         const val MIN_HEIGHT_DP = 56
