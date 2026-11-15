@@ -1,10 +1,12 @@
 package app.lawnchair.feed.widgets
 
 import android.appwidget.AppWidgetHostView
+import android.appwidget.AppWidgetProviderInfo
 import android.content.Context
 import android.os.Build
 import android.os.Bundle
 import android.util.SizeF
+import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -26,6 +28,41 @@ class FeedWidgetHostView(context: Context) : AppWidgetHostView(context) {
             parent?.requestDisallowInterceptTouchEvent(true)
         }
         return super.dispatchTouchEvent(ev)
+    }
+
+    override fun setAppWidget(appWidgetId: Int, info: AppWidgetProviderInfo?) {
+        super.setAppWidget(appWidgetId, info)
+        // The feed sets the margins, so the widget's background can be clipped to rounded corners.
+        setPadding(0, 0, 0, 0)
+    }
+
+    /**
+     * Widgets are anchored to the top rather than centred, so that a height set lower than the
+     * widget's own cuts off its bottom, not its top and bottom.
+     */
+    override fun prepareView(view: View) {
+        super.prepareView(view)
+        (view.layoutParams as? LayoutParams)?.gravity = Gravity.TOP or Gravity.CENTER_HORIZONTAL
+    }
+
+    /**
+     * The height the feed offers is used in full by widgets that stretch. A widget with a height
+     * of its own would be centred in it with empty bands above and below, so then the view
+     * takes the widget's height instead.
+     */
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        val offered = MeasureSpec.getSize(heightMeasureSpec)
+        val exactHeight = if (MeasureSpec.getMode(heightMeasureSpec) == MeasureSpec.AT_MOST) {
+            MeasureSpec.makeMeasureSpec(offered, MeasureSpec.EXACTLY)
+        } else {
+            heightMeasureSpec
+        }
+        super.onMeasure(widthMeasureSpec, exactHeight)
+        val content = getChildAt(0) ?: return
+        val stretches = content.layoutParams?.height == ViewGroup.LayoutParams.MATCH_PARENT
+        if (!stretches && content.measuredHeight in 1 until measuredHeight) {
+            setMeasuredDimension(measuredWidth, content.measuredHeight)
+        }
     }
 
     override fun onLayout(changed: Boolean, left: Int, top: Int, right: Int, bottom: Int) {

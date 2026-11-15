@@ -3,7 +3,7 @@ package app.lawnchair.feed.widgets
 import android.os.Build
 import android.view.ViewGroup
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -15,7 +15,10 @@ import androidx.compose.ui.res.dimensionResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 
-/** One widget of the feed, across its full width. Draws nothing once the widget is gone. */
+/**
+ * One widget of the feed, across its full width and up to its set height. Draws nothing once the
+ * widget is gone.
+ */
 @Composable
 fun FeedWidgetBlock(
     widget: FeedWidget,
@@ -34,12 +37,17 @@ fun FeedWidgetBlock(
     AndroidView(
         factory = {
             (view.parent as? ViewGroup)?.removeView(view)
+            view.layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+            )
             view
         },
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp)
-            .height(widget.heightDp.dp)
+            .padding(horizontal = 20.dp, vertical = 8.dp)
+            // An upper limit: FeedWidgetHostView takes less for a widget with a height of its own.
+            .heightIn(max = widget.heightDp.dp)
             .clip(RoundedCornerShape(cornerRadius)),
     )
 }

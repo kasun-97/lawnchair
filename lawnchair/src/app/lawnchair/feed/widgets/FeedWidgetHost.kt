@@ -190,7 +190,7 @@ class FeedWidgetHost private constructor(private val context: Context) {
 
     /** Height for a widget that was designed for a grid: about one home screen row per cell. */
     private fun defaultHeightDp(info: AppWidgetProviderInfo): Int = (spanY(info) * CELL_HEIGHT_DP)
-        .coerceIn(FeedWidget.MIN_HEIGHT_DP, FeedWidget.MAX_HEIGHT_DP)
+        .coerceIn(FeedWidget.MIN_HEIGHT_DP, DEFAULT_HEIGHT_LIMIT_DP)
 
     fun spanX(info: AppWidgetProviderInfo): Int {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && info.targetCellWidth > 0) return info.targetCellWidth
@@ -235,5 +235,8 @@ class FeedWidgetHost private constructor(private val context: Context) {
         private const val HOST_ID = 1029
         private const val REQUEST_CONFIGURE = 0x4657
         private const val CELL_HEIGHT_DP = 96
+
+        // Tall widgets would otherwise start out filling most of the screen.
+        private const val DEFAULT_HEIGHT_LIMIT_DP = 384
     }
 }
