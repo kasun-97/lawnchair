@@ -37,6 +37,9 @@ import app.lawnchair.ui.preferences.destinations.DockPreferences
 import app.lawnchair.ui.preferences.destinations.DummyPreference
 import app.lawnchair.ui.preferences.destinations.ExperimentalFeaturesPreferences
 import app.lawnchair.ui.preferences.destinations.FeatureFlagsPreference
+import app.lawnchair.ui.preferences.destinations.FeedPreferences
+import app.lawnchair.ui.preferences.destinations.FeedSectionEditorPreferences
+import app.lawnchair.ui.preferences.destinations.FeedSectionsPreferences
 import app.lawnchair.ui.preferences.destinations.FeedSourcesPreferences
 import app.lawnchair.ui.preferences.destinations.FolderPreferences
 import app.lawnchair.ui.preferences.destinations.FontSelection
@@ -149,6 +152,15 @@ fun PreferenceNavigation(
         composable<HomeScreenGrid>(
             deepLinks = getDeepLink(HomeScreenGrid),
         ) { HomeScreenGridPreferences() }
+        composable<HomeScreenFeed>(
+            deepLinks = getDeepLink(HomeScreenFeed),
+        ) { FeedPreferences() }
+        composable<HomeScreenFeedSections>(
+            deepLinks = getDeepLink(HomeScreenFeedSections),
+        ) { FeedSectionsPreferences() }
+        composable<HomeScreenFeedSectionEditor> { backStackEntry ->
+            FeedSectionEditorPreferences(backStackEntry.toRoute<HomeScreenFeedSectionEditor>().id)
+        }
         composable<HomeScreenFeedSources>(
             deepLinks = getDeepLink(HomeScreenFeedSources),
         ) { FeedSourcesPreferences() }

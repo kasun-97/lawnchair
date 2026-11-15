@@ -159,7 +159,7 @@ fun HomeScreenPreferences(
             }
             val builtInFeed = FeedBridge.isBuiltIn(prefs.feedProvider.getAdapter().state.value)
             ExpandAndShrink(visible = feedAvailable && enableFeedAdapter.state.value && builtInFeed) {
-                FeedSourcesPreferenceItem()
+                FeedPreferenceItem()
             }
         }
         PreferenceGroup(heading = stringResource(R.string.style)) {

@@ -317,12 +317,14 @@ private fun drawerTabAppsComparator(selected: Set<String>): Comparator<App> = re
     comparing<App, Int> { if (selected.contains(it.key.toString())) 0 else 1 }.then(appComparator)
 }
 
+/** Asks for a one-line title. Also used for the app sections of the built-in feed. */
 @Composable
-private fun DrawerTabTitleSheet(
+internal fun DrawerTabTitleSheet(
     initialTitle: String,
     onSave: (String) -> Unit,
     onDismiss: () -> Unit,
     allowBlank: Boolean = false,
+    label: String = stringResource(R.string.drawer_tabs_title_hint),
 ) {
     var value by remember { mutableStateOf(TextFieldValue(initialTitle)) }
     val isBlank = value.text.isBlank()
@@ -348,7 +350,7 @@ private fun DrawerTabTitleSheet(
             OutlinedTextField(
                 value = value,
                 onValueChange = { value = it },
-                label = { Text(stringResource(R.string.drawer_tabs_title_hint)) },
+                label = { Text(label) },
                 modifier = Modifier
                     .padding(horizontal = 16.dp)
                     .fillMaxWidth(),

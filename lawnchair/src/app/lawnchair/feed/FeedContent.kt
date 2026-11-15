@@ -47,10 +47,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.lawnchair.feed.rss.FeedArticle
 import app.lawnchair.feed.rss.RssRepository
+import app.lawnchair.feed.sections.FeedAppSectionBlock
+import app.lawnchair.feed.sections.launcherAppsState
+import app.lawnchair.feed.sections.resolveApps
+import app.lawnchair.launcherNullable
 import app.lawnchair.preferences2.asState
 import app.lawnchair.preferences2.preferenceManager2
 import app.lawnchair.ui.preferences.PreferenceActivity
-import app.lawnchair.ui.preferences.navigation.HomeScreenFeedSources
+import app.lawnchair.ui.preferences.navigation.HomeScreenFeed
 import coil.compose.AsyncImage
 import com.android.launcher3.R
 
@@ -66,7 +70,13 @@ fun FeedContent(
     val context = LocalContext.current
     val repository = remember { RssRepository.getInstance(context) }
     val state by repository.state.collectAsStateWithLifecycle()
-    val sources by preferenceManager2().feedSources.asState()
+    val prefs2 = preferenceManager2()
+    val sources by prefs2.feedSources.asState()
+    val sections by prefs2.feedAppSections.asState()
+    val apps by launcherAppsState()
+    val columns = remember(context) {
+        (context.launcherNullable?.deviceProfile?.numShownAllAppsColumns ?: 0).takeIf { it > 0 } ?: 4
+    }
     val layoutDirection = LocalLayoutDirection.current
 
     Surface(
@@ -92,13 +102,21 @@ fun FeedContent(
                 item(key = "header") {
                     FeedHeader(onOpenSettings = { openFeedSettings(context) })
                 }
+                items(sections, key = { "section:${it.id}" }) { section ->
+                    val sectionApps = remember(section, apps) { section.resolveApps(apps) }
+                    if (sectionApps.isNotEmpty()) {
+                        FeedAppSectionBlock(title = section.title, apps = sectionApps, columns = columns)
+                    }
+                }
                 when {
-                    sources.isEmpty() -> item(key = "message") {
-                        FeedMessage(
-                            text = stringResource(R.string.feed_no_sources),
-                            action = stringResource(R.string.feed_sources_add),
-                            onAction = { openFeedSettings(context) },
-                        )
+                    sources.isEmpty() -> if (sections.isEmpty()) {
+                        item(key = "message") {
+                            FeedMessage(
+                                text = stringResource(R.string.feed_empty),
+                                action = stringResource(R.string.feed_set_up),
+                                onAction = { openFeedSettings(context) },
+                            )
+                        }
                     }
 
                     state.articles.isEmpty() -> item(key = "message") {
@@ -141,7 +159,7 @@ private fun FeedHeader(
         IconButton(onClick = onOpenSettings) {
             Icon(
                 imageVector = Icons.Rounded.Settings,
-                contentDescription = stringResource(R.string.feed_sources_label),
+                contentDescription = stringResource(R.string.feed_built_in),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
@@ -241,6 +259,6 @@ private fun openArticle(context: Context, article: FeedArticle) {
 
 private fun openFeedSettings(context: Context) {
     context.startActivity(
-        PreferenceActivity.createIntent(context, HomeScreenFeedSources).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PreferenceActivity.createIntent(context, HomeScreenFeed).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
     )
 }

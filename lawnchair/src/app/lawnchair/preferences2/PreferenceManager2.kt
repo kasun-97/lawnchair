@@ -31,6 +31,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import app.lawnchair.allapps.tabs.DrawerTab
 import app.lawnchair.data.Converters
 import app.lawnchair.feed.rss.FeedSource
+import app.lawnchair.feed.sections.FeedAppSection
 import app.lawnchair.font.FontCache
 import app.lawnchair.gestures.config.GestureHandlerConfig
 import app.lawnchair.gestures.handlers.SleepMode
@@ -721,6 +722,12 @@ class PreferenceManager2 @Inject constructor(
     val enableFeed = preference(
         key = booleanPreferencesKey(name = "enable_feed"),
         defaultValue = context.resources.getBoolean(R.bool.config_default_enable_feed),
+    )
+
+    /** App sections of the built-in feed, in display order. */
+    val feedAppSections = serializablePreference<List<FeedAppSection>>(
+        key = stringPreferencesKey("feed_app_sections"),
+        defaultValue = emptyList(),
     )
 
     /** News sources of the built-in feed, in the order they were added. */
