@@ -27,6 +27,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import app.lawnchair.FeedBridge
 import app.lawnchair.LawnchairApp
 import app.lawnchair.data.iconoverride.IconOverrideRepository
 import app.lawnchair.nexuslauncher.OverlayCallbackImpl
@@ -155,6 +156,10 @@ fun HomeScreenPreferences(
             )
             ExpandAndShrink(visible = feedAvailable && enableFeedAdapter.state.value) {
                 FeedPreference()
+            }
+            val builtInFeed = FeedBridge.isBuiltIn(prefs.feedProvider.getAdapter().state.value)
+            ExpandAndShrink(visible = feedAvailable && enableFeedAdapter.state.value && builtInFeed) {
+                FeedSourcesPreferenceItem()
             }
         }
         PreferenceGroup(heading = stringResource(R.string.style)) {

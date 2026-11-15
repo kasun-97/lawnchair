@@ -145,7 +145,21 @@
 
     <!-- Built-in feed -->
     <string name="feed_built_in">Built-in feed</string>
-    <string name="feed_empty">Your feed is empty</string>
+    <string name="feed_no_sources">Add news sources to see headlines here</string>
+    <string name="feed_no_headlines">No headlines yet</string>
+    <string name="feed_loading">Loading headlines…</string>
+    <string name="feed_load_failed">Couldn\'t load headlines. Pull down to try again.</string>
+    <string name="feed_sources_label">News sources</string>
+    <string name="feed_sources_description">RSS feeds shown as headlines in the built-in feed</string>
+    <string name="feed_sources_add">Add source</string>
+    <string name="feed_sources_remove">Remove source</string>
+    <string name="feed_sources_empty">No sources yet. Add the address of an RSS feed or of a news site.</string>
+    <string name="feed_sources_address_hint">Feed or website address</string>
+    <string name="feed_sources_checking">Checking…</string>
+    <string name="feed_sources_error_address">This isn\'t a valid address</string>
+    <string name="feed_sources_error_not_feed">No feed found at this address</string>
+    <string name="feed_sources_error_network">Couldn\'t reach this address</string>
+    <string name="feed_sources_error_duplicate">This source is already added</string>
 
     <!-- Drawer tabs -->
     <string name="drawer_tabs_label">Tabs</string>

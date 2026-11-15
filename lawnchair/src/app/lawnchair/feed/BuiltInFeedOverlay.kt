@@ -9,6 +9,7 @@ import android.view.ViewGroup.LayoutParams.MATCH_PARENT
 import android.window.BackEvent
 import androidx.annotation.RequiresApi
 import app.lawnchair.LawnchairLauncher
+import app.lawnchair.feed.rss.RssRepository
 import com.android.app.animation.Interpolators
 import com.android.launcher3.InsettableFrameLayout
 import com.android.launcher3.LauncherState
@@ -177,6 +178,9 @@ class BuiltInFeedOverlay(private val launcher: LawnchairLauncher) :
     }
 
     private fun applyProgress(newProgress: Float) {
+        if (progress == 0f && newProgress > 0f && panel != null) {
+            RssRepository.getInstance(launcher).refresh(force = false)
+        }
         progress = newProgress
         panel?.let { view ->
             view.visibility = if (newProgress > 0f) View.VISIBLE else View.INVISIBLE
