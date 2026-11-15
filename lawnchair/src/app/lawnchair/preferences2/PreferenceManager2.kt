@@ -31,6 +31,7 @@ import androidx.datastore.preferences.preferencesDataStore
 import app.lawnchair.allapps.tabs.DrawerTab
 import app.lawnchair.data.Converters
 import app.lawnchair.feed.rss.FeedSource
+import app.lawnchair.feed.rss.FeedSources
 import app.lawnchair.feed.sections.FeedAppSection
 import app.lawnchair.feed.widgets.FeedWidget
 import app.lawnchair.font.FontCache
@@ -747,6 +748,23 @@ class PreferenceManager2 @Inject constructor(
     val feedSources = serializablePreference<List<FeedSource>>(
         key = stringPreferencesKey("feed_sources"),
         defaultValue = emptyList(),
+    )
+
+    /** Title above the headlines of the built-in feed; empty for the default one. */
+    val feedHeadlinesTitle = preference(
+        key = stringPreferencesKey(name = "feed_headlines_title"),
+        defaultValue = "",
+    )
+
+    val feedHeadlinesShowTitle = preference(
+        key = booleanPreferencesKey(name = "feed_headlines_show_title"),
+        defaultValue = true,
+    )
+
+    /** The most headlines the built-in feed shows, one of [FeedSources.HEADLINE_LIMITS]. */
+    val feedMaxHeadlines = preference(
+        key = intPreferencesKey(name = "feed_max_headlines"),
+        defaultValue = FeedSources.DEFAULT_HEADLINE_LIMIT,
     )
 
     val showComponentNames = preference(

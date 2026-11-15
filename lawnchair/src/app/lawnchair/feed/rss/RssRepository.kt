@@ -20,14 +20,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 
 /**
- * Headlines of the built-in feed: fetched from the sources in the preferences, merged newest
- * first and kept in a file so the feed has content before (and without) a network round trip.
+ * Headlines of the built-in feed: fetched from the sources switched on in the preferences, merged
+ * newest first and kept in a file so the feed has content before (and without) a network round
+ * trip. Headlines a source no longer lists stay until newer ones push them out, so the feed can
+ * hold more than the sources offer at one time.
  */
 class RssRepository private constructor(private val context: Context) {
 
@@ -63,7 +66,7 @@ class RssRepository private constructor(private val context: Context) {
         scope.launch {
             cache = withContext(Dispatchers.IO) { readCache() }
             _state.update { it.copy(articles = cache.articles, ready = true) }
-            prefs.feedSources.get().distinctUntilChanged().collect(::onSourcesChanged)
+            prefs.feedSources.get().map { it.filter(FeedSource::enabled) }.distinctUntilChanged().collect(::onSourcesChanged)
         }
     }
 
@@ -73,7 +76,7 @@ class RssRepository private constructor(private val context: Context) {
      */
     fun refresh(force: Boolean) {
         if (!_state.value.ready || refreshJob?.isActive == true) return
-        val sources = prefs.feedSources.firstCached()
+        val sources = enabledSources()
         if (sources.isEmpty()) return
         if (!force && System.currentTimeMillis() - cache.updated < STALE_AFTER_MS) return
 
@@ -87,16 +90,20 @@ class RssRepository private constructor(private val context: Context) {
                     }.awaitAll()
                 }
             }
-            // A source that failed this time keeps the headlines it had.
-            val articles = sources.zip(results).flatMap { (source, result) ->
-                result.getOrNull() ?: previous[source.id].orEmpty()
+            // Sources removed or switched off while this was loading are left out.
+            val current = enabledSources().map { it.id }.toSet()
+            val loaded = sources.zip(results).filter { it.first.id in current }
+            // New headlines go in front of the ones the source already had; a source that failed
+            // this time just keeps those.
+            val articles = loaded.flatMap { (source, result) ->
+                result.getOrNull().orEmpty() + previous[source.id].orEmpty()
             }
             val anyLoaded = results.any { it.isSuccess }
             if (anyLoaded) {
                 store(
                     Cache(
                         updated = System.currentTimeMillis(),
-                        sourceIds = sources.zip(results).filter { it.second.isSuccess }.map { it.first.id },
+                        sourceIds = loaded.filter { it.second.isSuccess }.map { it.first.id },
                         articles = merge(articles),
                     ),
                 )
@@ -104,6 +111,8 @@ class RssRepository private constructor(private val context: Context) {
             _state.update { it.copy(articles = cache.articles, refreshing = false, failed = !anyLoaded) }
         }
     }
+
+    private fun enabledSources(): List<FeedSource> = prefs.feedSources.firstCached().filter { it.enabled }
 
     private suspend fun onSourcesChanged(sources: List<FeedSource>) {
         val ids = sources.map { it.id }.toSet()
@@ -130,7 +139,7 @@ class RssRepository private constructor(private val context: Context) {
         )
     }
 
-    /** Newest first; undated items keep their feed order at the end. */
+    /** Newest first; undated items keep their feed order at the end. A link is kept once, as it was loaded last. */
     private fun merge(articles: List<FeedArticle>): List<FeedArticle> = articles
         .distinctBy { it.link }
         .sortedByDescending { it.published }
@@ -157,7 +166,9 @@ class RssRepository private constructor(private val context: Context) {
     ) {
         private const val TAG = "RssRepository"
         private const val STALE_AFTER_MS = 30L * 60 * 1000
-        private const val ITEMS_PER_SOURCE = 30
-        private const val MAX_ARTICLES = 150
+        private const val ITEMS_PER_SOURCE = 100
+
+        // Enough for the largest number of headlines the feed can be set to show.
+        private val MAX_ARTICLES = FeedSources.HEADLINE_LIMITS.max()
     }
 }

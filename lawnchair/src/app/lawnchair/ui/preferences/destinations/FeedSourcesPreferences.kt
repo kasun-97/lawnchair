@@ -1,6 +1,7 @@
 package app.lawnchair.ui.preferences.destinations
 
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -17,6 +18,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -38,6 +41,10 @@ import app.lawnchair.preferences.getAdapter
 import app.lawnchair.preferences2.preferenceManager2
 import app.lawnchair.ui.ModalBottomSheetContent
 import app.lawnchair.ui.preferences.components.NavigationActionPreference
+import app.lawnchair.ui.preferences.components.controls.ListPreference
+import app.lawnchair.ui.preferences.components.controls.ListPreferenceEntry
+import app.lawnchair.ui.preferences.components.controls.SwitchPreference
+import app.lawnchair.ui.preferences.components.controls.TextPreference
 import app.lawnchair.ui.preferences.components.layout.PreferenceGroup
 import app.lawnchair.ui.preferences.components.layout.PreferenceLayout
 import app.lawnchair.ui.preferences.components.layout.PreferenceTemplate
@@ -56,7 +63,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 fun FeedSourcesPreferenceItem(
     modifier: Modifier = Modifier,
 ) {
-    val sources = preferenceManager2().feedSources.getAdapter().state.value
+    val sources = preferenceManager2().feedSources.getAdapter().state.value.filter { it.enabled }
     NavigationActionPreference(
         label = stringResource(R.string.feed_sources_label),
         destination = HomeScreenFeedSources,
@@ -69,13 +76,22 @@ fun FeedSourcesPreferenceItem(
     )
 }
 
-/** News sources of the built-in feed: add by address, remove. */
+/**
+ * RSS settings of the built-in feed: the title above the headlines, how many are shown, and the
+ * feeds they come from, which are added by address, switched on or off and removed.
+ */
 @Composable
 fun FeedSourcesPreferences(
     modifier: Modifier = Modifier,
 ) {
-    val sourcesAdapter = preferenceManager2().feedSources.getAdapter()
+    val prefs2 = preferenceManager2()
+    val sourcesAdapter = prefs2.feedSources.getAdapter()
     val sources = sourcesAdapter.state.value
+    val showTitleAdapter = prefs2.feedHeadlinesShowTitle.getAdapter()
+    val defaultTitle = stringResource(R.string.feed_headlines_title)
+    val limitEntries = remember {
+        FeedSources.HEADLINE_LIMITS.map { limit -> ListPreferenceEntry(limit) { limit.toString() } }
+    }
     val bottomSheetHandler = bottomSheetHandler
     val haptics = MSDLPlayerWrapper.INSTANCE.get(LocalContext.current)
 
@@ -84,7 +100,29 @@ fun FeedSourcesPreferences(
         backArrowVisible = true,
         modifier = modifier,
     ) {
-        PreferenceGroup(description = stringResource(R.string.feed_sources_description)) {
+        PreferenceGroup(heading = stringResource(R.string.feed_headlines_label)) {
+            SwitchPreference(
+                adapter = showTitleAdapter,
+                label = stringResource(R.string.feed_widgets_show_title),
+            )
+            TextPreference(
+                adapter = prefs2.feedHeadlinesTitle.getAdapter(),
+                label = stringResource(R.string.feed_widgets_title),
+                enabled = showTitleAdapter.state.value,
+                // Left empty, the title is the default one.
+                description = { it.ifBlank { defaultTitle } },
+            )
+            ListPreference(
+                adapter = prefs2.feedMaxHeadlines.getAdapter(),
+                entries = limitEntries,
+                label = stringResource(R.string.feed_headlines_max),
+            )
+        }
+
+        PreferenceGroup(
+            heading = stringResource(R.string.feed_sources_list_label),
+            description = stringResource(R.string.feed_sources_description),
+        ) {
             PreferenceTemplate(
                 title = {
                     Text(
@@ -115,24 +153,35 @@ fun FeedSourcesPreferences(
         if (sources.isNotEmpty()) {
             PreferenceGroup {
                 sources.forEach { source ->
+                    // Switched off, a feed stays in the list but its headlines leave the feed.
+                    val setEnabled = { enabled: Boolean ->
+                        haptics.playToken(if (enabled) MSDLToken.SWITCH_ON else MSDLToken.SWITCH_OFF)
+                        sourcesAdapter.onChange(
+                            sourcesAdapter.state.value.map { if (it.id == source.id) it.copy(enabled = enabled) else it },
+                        )
+                    }
                     PreferenceTemplate(
                         title = { Text(source.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         description = { Text(source.url, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         endWidget = {
-                            IconButton(
-                                onClick = {
-                                    haptics.playToken(MSDLToken.SUCCESS)
-                                    sourcesAdapter.onChange(sourcesAdapter.state.value.filterNot { it.id == source.id })
-                                },
-                                shapes = IconButtonDefaults.shapes(),
-                            ) {
-                                Icon(
-                                    Icons.Rounded.Delete,
-                                    contentDescription = stringResource(R.string.feed_sources_remove),
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                IconButton(
+                                    onClick = {
+                                        haptics.playToken(MSDLToken.SUCCESS)
+                                        sourcesAdapter.onChange(sourcesAdapter.state.value.filterNot { it.id == source.id })
+                                    },
+                                    shapes = IconButtonDefaults.shapes(),
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Delete,
+                                        contentDescription = stringResource(R.string.feed_sources_remove),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Switch(checked = source.enabled, onCheckedChange = setEnabled)
                             }
                         },
+                        onClick = { setEnabled(!source.enabled) },
                     )
                 }
             }

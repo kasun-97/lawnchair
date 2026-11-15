@@ -145,9 +145,9 @@
 
     <!-- Built-in feed -->
     <string name="feed_built_in">Built-in feed</string>
-    <string name="feed_built_in_description">Widgets, app sections and news sources</string>
+    <string name="feed_built_in_description">Widgets, app sections and RSS feeds</string>
     <string name="feed_content_label">Content</string>
-    <string name="feed_empty">Your feed is empty. Add widgets, app sections or news sources to fill it.</string>
+    <string name="feed_empty">Your feed is empty. Add widgets, app sections or RSS feeds to fill it.</string>
     <string name="feed_set_up">Set up feed</string>
     <string name="feed_rename">Rename</string>
     <string name="feed_widgets_label">Widgets</string>
@@ -161,7 +161,7 @@
     <string name="feed_widgets_title_hidden">Title hidden</string>
     <string name="feed_widgets_title_default_hint">Leave empty to use the widget\'s own name</string>
     <string name="feed_widgets_title">Title</string>
-    <string name="feed_widgets_title_hint">Shown above the widget. Leave empty for no title.</string>
+    <string name="feed_widgets_title_hint">Leave empty for no title.</string>
     <string name="feed_widgets_height">Height</string>
     <string name="feed_widgets_height_value">%1$d dp</string>
     <string name="feed_widgets_size">%1$d × %2$d</string>
@@ -176,17 +176,22 @@
     <string name="feed_no_headlines">No headlines yet</string>
     <string name="feed_loading">Loading headlines…</string>
     <string name="feed_load_failed">Couldn\'t load headlines. Pull down to try again.</string>
-    <string name="feed_sources_label">News sources</string>
-    <string name="feed_sources_description">RSS feeds shown as headlines in the built-in feed</string>
-    <string name="feed_sources_add">Add source</string>
-    <string name="feed_sources_remove">Remove source</string>
-    <string name="feed_sources_empty">No sources yet. Add the address of an RSS feed or of a news site.</string>
+    <string name="feed_scroll_to_top">Back to top</string>
+    <string name="feed_headlines_title">News</string>
+    <string name="feed_headlines_label">Headlines</string>
+    <string name="feed_headlines_max">Maximum headlines</string>
+    <string name="feed_sources_label">RSS</string>
+    <string name="feed_sources_list_label">Feeds</string>
+    <string name="feed_sources_description">Headlines from RSS feeds, shown in the built-in feed</string>
+    <string name="feed_sources_add">Add feed</string>
+    <string name="feed_sources_remove">Remove feed</string>
+    <string name="feed_sources_empty">No feeds yet. Add the address of an RSS feed or of a news site.</string>
     <string name="feed_sources_address_hint">Feed or website address</string>
     <string name="feed_sources_checking">Checking…</string>
     <string name="feed_sources_error_address">This isn\'t a valid address</string>
     <string name="feed_sources_error_not_feed">No feed found at this address</string>
     <string name="feed_sources_error_network">Couldn\'t reach this address</string>
-    <string name="feed_sources_error_duplicate">This source is already added</string>
+    <string name="feed_sources_error_duplicate">This feed is already added</string>
 
     <!-- Drawer tabs -->
     <string name="drawer_tabs_label">Tabs</string>

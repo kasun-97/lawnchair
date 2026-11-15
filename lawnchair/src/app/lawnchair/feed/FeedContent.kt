@@ -4,9 +4,15 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.text.format.DateUtils
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -28,20 +34,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -100,6 +110,9 @@ private val HorizontalPadding = 20.dp
  * Widgets and app sections are picked up by holding them: dragged on, they change places. Let go
  * where it was, a block held by its title is renamed and a widget held elsewhere shows its resize
  * frame. [onReorderingChange] reports while a block is held.
+ *
+ * The headlines come last, under a title of their own that is renamed by holding it too. Once
+ * they are scrolled into, a button leads back to the top.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -116,6 +129,13 @@ fun FeedContent(
     val state by repository.state.collectAsStateWithLifecycle()
     val prefs2 = preferenceManager2()
     val sources by prefs2.feedSources.asState()
+    val hasSources = sources.any { it.enabled }
+    val maxHeadlines by prefs2.feedMaxHeadlines.asState()
+    val articles = remember(state.articles, maxHeadlines) { state.articles.take(maxHeadlines) }
+    val showHeadlinesTitle by prefs2.feedHeadlinesShowTitle.asState()
+    val savedHeadlinesTitle by prefs2.feedHeadlinesTitle.asState()
+    val defaultHeadlinesTitle = stringResource(R.string.feed_headlines_title)
+    val headlinesTitle = savedHeadlinesTitle.ifBlank { defaultHeadlinesTitle }
     val widgets by prefs2.feedWidgets.asState()
     val sections by prefs2.feedAppSections.asState()
     val apps by launcherAppsState()
@@ -133,6 +153,11 @@ fun FeedContent(
     val widgetsByKey = remember(widgets) { widgets.associateBy { FeedBlocks.widgetKey(it.id) } }
     val sectionsByKey = remember(sections) { sections.associateBy { FeedBlocks.sectionKey(it.id) } }
     val listState = rememberLazyListState()
+    // The header and the blocks come before the headlines and their title.
+    val firstHeadlineIndex by rememberUpdatedState(1 + blockOrder.size + if (showHeadlinesTitle) 1 else 0)
+    val showScrollToTop by remember {
+        derivedStateOf { listState.firstVisibleItemIndex > firstHeadlineIndex }
+    }
     // Set while the question whether to remove this widget is on screen.
     var widgetToRemove by remember { mutableStateOf<FeedWidget?>(null) }
     // Set while the title of this block is being edited.
@@ -174,7 +199,13 @@ fun FeedContent(
                 val widget = widgetsByKey[target.key]
                 val section = sectionsByKey[target.key]
                 scope.launch {
-                    if (widget != null) {
+                    if (target.key == HEADLINES_KEY) {
+                        // Emptied: the title is hidden and the name is kept.
+                        if (text.isNotEmpty()) {
+                            prefs2.feedHeadlinesTitle.set(if (text == defaultHeadlinesTitle) "" else text)
+                        }
+                        prefs2.feedHeadlinesShowTitle.set(text.isNotEmpty())
+                    } else if (widget != null) {
                         prefs2.feedWidgets.set(
                             prefs2.feedWidgets.get().first().map {
                                 when {
@@ -306,8 +337,8 @@ fun FeedContent(
                         }
                     }
                 }
-                when {
-                    sources.isEmpty() -> if (sections.isEmpty() && widgets.isEmpty()) {
+                if (!hasSources) {
+                    if (sections.isEmpty() && widgets.isEmpty()) {
                         item(key = "message") {
                             FeedMessage(
                                 text = stringResource(R.string.feed_empty),
@@ -316,27 +347,61 @@ fun FeedContent(
                             )
                         }
                     }
-
-                    state.articles.isEmpty() -> item(key = "message") {
-                        FeedMessage(
-                            text = stringResource(
-                                when {
-                                    state.failed -> R.string.feed_load_failed
-                                    state.refreshing || !state.ready -> R.string.feed_loading
-                                    else -> R.string.feed_no_headlines
+                } else {
+                    if (showHeadlinesTitle) {
+                        item(key = HEADLINES_KEY) {
+                            HeadlinesTitle(
+                                title = headlinesTitle,
+                                onHeld = {
+                                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    renaming = RenameTarget(HEADLINES_KEY, headlinesTitle, canBeEmpty = true)
                                 },
-                            ),
-                        )
+                            )
+                        }
                     }
-
-                    else -> items(state.articles, key = { "${it.sourceId}:${it.link}" }) { article ->
-                        ArticleRow(article = article, onClick = { openArticle(context, article) })
+                    if (articles.isEmpty()) {
+                        item(key = "message") {
+                            FeedMessage(
+                                text = stringResource(
+                                    when {
+                                        state.failed -> R.string.feed_load_failed
+                                        state.refreshing || !state.ready -> R.string.feed_loading
+                                        else -> R.string.feed_no_headlines
+                                    },
+                                ),
+                            )
+                        }
+                    } else {
+                        items(articles, key = { "${it.sourceId}:${it.link}" }) { article ->
+                            ArticleRow(article = article, onClick = { openArticle(context, article) })
+                        }
                     }
+                }
+            }
+            AnimatedVisibility(
+                visible = hasSources && showScrollToTop,
+                enter = fadeIn() + scaleIn(),
+                exit = fadeOut() + scaleOut(),
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(end = 16.dp, bottom = contentPadding.calculateBottomPadding() + 16.dp),
+            ) {
+                SmallFloatingActionButton(
+                    onClick = { scope.launch { listState.animateScrollToItem(0) } },
+                    elevation = FloatingActionButtonDefaults.elevation(defaultElevation = 3.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.ArrowUpward,
+                        contentDescription = stringResource(R.string.feed_scroll_to_top),
+                    )
                 }
             }
         }
     }
 }
+
+/** Key of the headlines' title, in the list and as what is being renamed. */
+private const val HEADLINES_KEY = "headlines"
 
 /** A block whose title is being edited: its key in the feed's order and the title to start from. */
 private class RenameTarget(
@@ -418,6 +483,28 @@ private fun FeedHeader(
             )
         }
     }
+}
+
+/** Title above the headlines, looking like the titles of the widgets and app sections. */
+@Composable
+private fun HeadlinesTitle(
+    title: String,
+    onHeld: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val currentOnHeld by rememberUpdatedState(onHeld)
+    Text(
+        text = title,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier
+            .fillMaxWidth()
+            .pointerInput(Unit) { detectTapGestures(onLongPress = { currentOnHeld() }) }
+            // With the padding of the first headline, as far from them as an app section's title is from its apps.
+            .padding(start = HorizontalPadding, top = 8.dp, end = HorizontalPadding),
+    )
 }
 
 @Composable
