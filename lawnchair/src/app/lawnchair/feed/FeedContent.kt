@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,6 +35,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,7 +64,9 @@ import app.lawnchair.feed.rss.RssRepository
 import app.lawnchair.feed.sections.FeedAppSectionBlock
 import app.lawnchair.feed.sections.launcherAppsState
 import app.lawnchair.feed.sections.resolveApps
+import app.lawnchair.feed.widgets.FeedWidget
 import app.lawnchair.feed.widgets.FeedWidgetBlock
+import app.lawnchair.feed.widgets.FeedWidgetHost
 import app.lawnchair.launcherNullable
 import app.lawnchair.preferences2.asState
 import app.lawnchair.preferences2.preferenceManager2
@@ -117,12 +121,34 @@ fun FeedContent(
     val widgetsByKey = remember(widgets) { widgets.associateBy { FeedBlocks.widgetKey(it.id) } }
     val sectionsByKey = remember(sections) { sections.associateBy { FeedBlocks.sectionKey(it.id) } }
     val listState = rememberLazyListState()
+    // Set while the question whether to remove this widget is on screen.
+    var widgetToRemove by remember { mutableStateOf<FeedWidget?>(null) }
     val reorderState = rememberReorderableLazyListState(listState) { from, to ->
         val fromIndex = blockOrder.indexOf(from.key)
         val toIndex = blockOrder.indexOf(to.key)
         if (fromIndex >= 0 && toIndex >= 0) {
             blockOrder = blockOrder.toMutableList().apply { add(toIndex, removeAt(fromIndex)) }
         }
+    }
+
+    widgetToRemove?.let { widget ->
+        AlertDialog(
+            onDismissRequest = { widgetToRemove = null },
+            title = { Text(stringResource(R.string.feed_widgets_remove_title)) },
+            text = { Text(stringResource(R.string.feed_widgets_remove_message, widget.label)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        widgetToRemove = null
+                        onResizingWidgetChange(null)
+                        scope.launch { FeedWidgetHost.getInstance(context).remove(widget) }
+                    },
+                ) { Text(stringResource(R.string.remove_drop_target_label)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { widgetToRemove = null }) { Text(stringResource(android.R.string.cancel)) }
+            },
+        )
     }
 
     Surface(
@@ -207,6 +233,7 @@ fun FeedContent(
                                         )
                                     }
                                 },
+                                onRemove = { widgetToRemove = widget },
                                 modifier = blockModifier,
                             )
 

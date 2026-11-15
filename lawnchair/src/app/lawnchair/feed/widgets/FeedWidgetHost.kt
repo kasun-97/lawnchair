@@ -107,6 +107,24 @@ class FeedWidgetHost private constructor(private val context: Context) {
             homeScreen && !hidden
         }
 
+    /** What [info]'s app offers as a preview, best first. Slow: call off the main thread. */
+    fun loadPreview(info: AppWidgetProviderInfo): FeedWidgetPreviewSource {
+        val homeScreen = AppWidgetProviderInfo.WIDGET_CATEGORY_HOME_SCREEN
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM &&
+            info.generatedPreviewCategories and homeScreen != 0
+        ) {
+            val views = runCatching { manager.getWidgetPreview(info.provider, info.profile, homeScreen) }.getOrNull()
+            if (views != null) return FeedWidgetPreviewSource.Layout(info, views)
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && info.previewLayout != 0) {
+            // A host view draws the initial layout of a widget that has no content yet.
+            val previewInfo = info.clone().apply { initialLayout = info.previewLayout }
+            return FeedWidgetPreviewSource.Layout(previewInfo, null)
+        }
+        val drawable = runCatching { info.loadPreviewImage(context, 0) }.getOrNull()
+        return if (drawable != null) FeedWidgetPreviewSource.Image(drawable) else FeedWidgetPreviewSource.None
+    }
+
     /**
      * Starts adding [info]. [launchBind] must show the given system screen and report its result
      * to [onBindResult].

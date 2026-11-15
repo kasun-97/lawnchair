@@ -4,6 +4,7 @@ import android.os.Build
 import android.view.ViewGroup
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -19,6 +20,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -34,15 +38,19 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.dimensionResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.android.launcher3.R
 import kotlin.math.roundToInt
 
 private val MinWidth = 120.dp
 private val HandleArea = 48.dp
 private val HandleDot = 16.dp
+private val RemoveButton = 28.dp
 
 /** Which edge of the resize frame a handle sits on. */
 private enum class Edge { Start, End, Bottom }
@@ -52,13 +60,15 @@ private enum class Edge { Start, End, Bottom }
  * nothing once the widget is gone.
  *
  * While [resizing], the widget is covered by a frame whose handles change its size; the result is
- * reported through [onResized] when a handle is let go.
+ * reported through [onResized] when a handle is let go. The frame's corner button asks for
+ * [onRemove].
  */
 @Composable
 fun FeedWidgetBlock(
     widget: FeedWidget,
     resizing: Boolean,
     onResized: (FeedWidget) -> Unit,
+    onRemove: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -115,6 +125,7 @@ fun FeedWidgetBlock(
             if (resizing) {
                 ResizeFrame(
                     shape = shape,
+                    onRemove = onRemove,
                     onDragStart = {
                         dragSize = DpSize(setWidth, with(density) { blockHeightPx.toDp() })
                     },
@@ -153,12 +164,14 @@ fun FeedWidgetBlock(
 }
 
 /**
- * Outline with a handle on the bottom edge (height) and one on each side (width). It also takes
- * every touch on the widget beneath it, so the widget cannot be operated by accident.
+ * Outline with a handle on the bottom edge (height), one on each side (width) and a remove button
+ * on the top corner. It also takes every touch on the widget beneath it, so the widget cannot be
+ * operated by accident.
  */
 @Composable
 private fun ResizeFrame(
     shape: RoundedCornerShape,
+    onRemove: () -> Unit,
     onDragStart: () -> Unit,
     onDrag: (edge: Edge, amount: Dp) -> Unit,
     onDragEnd: () -> Unit,
@@ -174,6 +187,29 @@ private fun ResizeFrame(
         ResizeHandle(Edge.Start, onDragStart, onDrag, onDragEnd)
         ResizeHandle(Edge.End, onDragStart, onDrag, onDragEnd)
         ResizeHandle(Edge.Bottom, onDragStart, onDrag, onDragEnd)
+        // The touch area lies inside the frame; the button is drawn over its corner.
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .size(HandleArea)
+                .clickable(
+                    onClickLabel = stringResource(R.string.feed_widgets_remove),
+                    role = Role.Button,
+                    onClick = onRemove,
+                ),
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Close,
+                contentDescription = stringResource(R.string.feed_widgets_remove),
+                tint = MaterialTheme.colorScheme.onError,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .offset(x = RemoveButton / 3, y = -RemoveButton / 3)
+                    .size(RemoveButton)
+                    .background(MaterialTheme.colorScheme.error, CircleShape)
+                    .padding(4.dp),
+            )
+        }
     }
 }
 

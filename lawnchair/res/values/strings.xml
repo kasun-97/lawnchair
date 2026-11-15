@@ -153,6 +153,8 @@
     <string name="feed_widgets_description">Widgets from other apps shown in the built-in feed</string>
     <string name="feed_widgets_add">Add widget</string>
     <string name="feed_widgets_remove">Remove widget</string>
+    <string name="feed_widgets_remove_title">Remove widget?</string>
+    <string name="feed_widgets_remove_message">%1$s will be removed from the feed.</string>
     <string name="feed_widgets_empty">No widgets yet.</string>
     <string name="feed_widgets_height">Height</string>
     <string name="feed_widgets_height_value">%1$d dp</string>

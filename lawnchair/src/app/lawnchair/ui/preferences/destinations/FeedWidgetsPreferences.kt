@@ -37,6 +37,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
@@ -45,6 +46,7 @@ import androidx.compose.ui.unit.dp
 import app.lawnchair.feed.FeedBlocks
 import app.lawnchair.feed.widgets.FeedWidget
 import app.lawnchair.feed.widgets.FeedWidgetHost
+import app.lawnchair.feed.widgets.FeedWidgetPreview
 import app.lawnchair.preferences.getAdapter
 import app.lawnchair.preferences2.preferenceManager2
 import app.lawnchair.ui.ModalBottomSheetContent
@@ -294,13 +296,22 @@ fun FeedWidgetPickerPreferences(
             PreferenceTemplate(
                 title = { Text(choice.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                 description = {
-                    Text(
-                        text = choice.appLabel + " · " +
-                            stringResource(R.string.feed_widgets_size, choice.spanX, choice.spanY),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    Column {
+                        Text(
+                            text = choice.appLabel + " · " +
+                                stringResource(R.string.feed_widgets_size, choice.spanX, choice.spanY),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        FeedWidgetPreview(
+                            info = choice.info,
+                            spanX = choice.spanX,
+                            spanY = choice.spanY,
+                            modifier = Modifier.padding(top = 8.dp),
+                        )
+                    }
                 },
+                verticalAlignment = Alignment.Top,
                 startWidget = {
                     if (choice.icon != null) {
                         Image(
