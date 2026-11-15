@@ -941,9 +941,12 @@ class PreferenceManager2 @Inject constructor(
             .launchIn(scope)
 
         initializeIconShape(iconShape.firstCached(this))
+        // Each flow emits on every write to the store, whichever preference it was for. Compare
+        // before dropping the initial value: the other way round, the first write of any
+        // preference after start-up looks like a change and restarts the launcher.
         iconShape.get()
-            .drop(1)
             .distinctUntilChanged()
+            .drop(1)
             .onEach { shape ->
                 initializeIconShape(shape)
                 L3ThemeManager.INSTANCE.get(context)
@@ -952,14 +955,14 @@ class PreferenceManager2 @Inject constructor(
             .launchIn(scope)
 
         hotseatMode.get()
-            .drop(1)
             .distinctUntilChanged()
+            .drop(1)
             .onEach { reloadHelper.restart() }
             .launchIn(scope)
 
         isHotseatEnabled.get()
-            .drop(1)
             .distinctUntilChanged()
+            .drop(1)
             .onEach {
                 reloadHelper.recreate()
                 reloadHelper.reloadGrid()
@@ -967,14 +970,14 @@ class PreferenceManager2 @Inject constructor(
             .launchIn(scope)
 
         hotseatQsbProvider.get()
-            .drop(1)
             .distinctUntilChanged()
+            .drop(1)
             .onEach { reloadHelper.recreate() }
             .launchIn(scope)
 
         enableLabelInDock.get()
-            .drop(1)
             .distinctUntilChanged()
+            .drop(1)
             .onEach { reloadHelper.reloadGrid() }
             .launchIn(scope)
     }
