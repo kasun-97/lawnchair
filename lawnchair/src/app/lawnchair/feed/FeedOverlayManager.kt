@@ -65,6 +65,7 @@ class FeedOverlayManager(private val launcher: LawnchairLauncher) : LauncherOver
         launcher.setLauncherOverlay(target)
     }
 
+    /** Also called by the launcher itself when it starts out in a window that is attached already. */
     override fun onAttachedToWindow() {
         external.onAttachedToWindow()
         windowAttached = true

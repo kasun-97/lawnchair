@@ -166,6 +166,9 @@ class LawnchairLauncher : QuickstepLauncher() {
 
         prefs.launcherTheme.subscribeChanges(this, ::updateTheme)
         prefs.feedProvider.subscribeChanges(this, defaultOverlay::reconnect)
+        // A launcher recreated while it is on screen (a theme change, say) is handed the window of
+        // the one before it, which is attached already: onAttachedToWindow() is not called again.
+        if (rootView.isAttachedToWindow) defaultOverlay.onAttachedToWindow()
         preferenceManager2.enableFeed.get().distinctUntilChanged().onEach { enable ->
             defaultOverlay.setEnableFeed(enable)
         }.launchIn(scope = lifecycleScope)
