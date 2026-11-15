@@ -175,10 +175,17 @@ fun FeedContent(
                 val section = sectionsByKey[target.key]
                 scope.launch {
                     if (widget != null) {
-                        // Left as the widget's own name, the title keeps following that name.
-                        val title = text.takeIf { it != widget.label }
                         prefs2.feedWidgets.set(
-                            prefs2.feedWidgets.get().first().map { if (it.id == widget.id) it.copy(title = title) else it },
+                            prefs2.feedWidgets.get().first().map {
+                                when {
+                                    it.id != widget.id -> it
+
+                                    // Emptied: the title is hidden and the name is kept.
+                                    text.isEmpty() -> it.copy(showTitle = false)
+
+                                    else -> it.withTitle(text).copy(showTitle = true)
+                                }
+                            },
                         )
                     } else if (section != null) {
                         prefs2.feedAppSections.set(

@@ -157,6 +157,9 @@
     <string name="feed_widgets_remove_title">Remove widget?</string>
     <string name="feed_widgets_remove_message">%1$s will be removed from the feed.</string>
     <string name="feed_widgets_empty">No widgets yet.</string>
+    <string name="feed_widgets_show_title">Show title</string>
+    <string name="feed_widgets_title_hidden">Title hidden</string>
+    <string name="feed_widgets_title_default_hint">Leave empty to use the widget\'s own name</string>
     <string name="feed_widgets_title">Title</string>
     <string name="feed_widgets_title_hint">Shown above the widget. Leave empty for no title.</string>
     <string name="feed_widgets_height">Height</string>

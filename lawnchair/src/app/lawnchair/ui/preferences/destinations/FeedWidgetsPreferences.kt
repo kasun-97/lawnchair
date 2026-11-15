@@ -11,11 +11,13 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Delete
@@ -28,6 +30,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -43,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import app.lawnchair.feed.FeedBlocks
@@ -155,9 +159,14 @@ fun FeedWidgetsPreferences(
                 PreferenceTemplate(
                     title = { Text(widget.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                     description = {
+                        val height = stringResource(R.string.feed_widgets_height) + ": " +
+                            stringResource(R.string.feed_widgets_height_value, widget.heightDp)
                         Text(
-                            stringResource(R.string.feed_widgets_height) + ": " +
-                                stringResource(R.string.feed_widgets_height_value, widget.heightDp),
+                            if (widget.titleVisible) {
+                                height
+                            } else {
+                                height + " · " + stringResource(R.string.feed_widgets_title_hidden)
+                            },
                         )
                     },
                     startWidget = {
@@ -183,10 +192,14 @@ fun FeedWidgetsPreferences(
                         bottomSheetHandler.show {
                             WidgetSettingsSheet(
                                 widget = widget,
-                                onSave = { title, height ->
+                                onSave = { title, showTitle, height ->
                                     widgetsAdapter.onChange(
                                         widgetsAdapter.state.value.map {
-                                            if (it.id == widget.id) it.copy(title = title, heightDp = height) else it
+                                            if (it.id == widget.id) {
+                                                it.withTitle(title).copy(showTitle = showTitle, heightDp = height)
+                                            } else {
+                                                it
+                                            }
                                         },
                                     )
                                 },
@@ -201,14 +214,15 @@ fun FeedWidgetsPreferences(
     }
 }
 
-/** Title shown above the widget (empty for none) and its height. */
+/** Whether the widget's title is shown, what it says, and the widget's height. */
 @Composable
 private fun WidgetSettingsSheet(
     widget: FeedWidget,
-    onSave: (title: String?, height: Int) -> Unit,
+    onSave: (title: String, showTitle: Boolean, height: Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    var title by remember { mutableStateOf(widget.shownTitle) }
+    var showTitle by remember { mutableStateOf(widget.titleVisible) }
+    var title by remember { mutableStateOf(widget.name) }
     var height by remember { mutableFloatStateOf(widget.heightDp.toFloat()) }
     ModalBottomSheetContent(
         title = { Text(widget.label) },
@@ -220,8 +234,7 @@ private fun WidgetSettingsSheet(
             Button(
                 onClick = {
                     onDismiss()
-                    // Left as the widget's own name, the title keeps following that name.
-                    onSave(title.trim().takeIf { it != widget.label }, height.roundToInt())
+                    onSave(title, showTitle, height.roundToInt())
                 },
                 shapes = ButtonDefaults.shapes(),
             ) {
@@ -230,11 +243,26 @@ private fun WidgetSettingsSheet(
         },
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .toggleable(value = showTitle, role = Role.Switch, onValueChange = { showTitle = it })
+                    .padding(bottom = 8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.feed_widgets_show_title),
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(checked = showTitle, onCheckedChange = null)
+            }
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
+                enabled = showTitle,
                 label = { Text(stringResource(R.string.feed_widgets_title)) },
-                supportingText = { Text(stringResource(R.string.feed_widgets_title_hint)) },
+                supportingText = { Text(stringResource(R.string.feed_widgets_title_default_hint)) },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
