@@ -6,6 +6,7 @@ object SmartspaceScores {
     const val SCORE_DND = 1.5f
     const val SCORE_ALARM = 1.8f
     const val SCORE_MEDIA = 2f
+    const val SCORE_RAIN_SOON = 2.5f
     const val SCORE_CALENDAR = 3f
     const val SCORE_LOW_BATTERY = 10f
     const val SCORE_FLASHLIGHT = 11f

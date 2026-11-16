@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Weather condition icon drawn for Lawnchair's Open-Meteo weather (colours kept: not tinted). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <group android:scaleX="0.7" android:scaleY="0.7" android:pivotX="0" android:pivotY="0" android:translateX="0.0" android:translateY="0.0">
+        <path android:fillColor="#FBBC04" android:pathData="M7.5,12a4.5,4.5 0,1 0,9 0a4.5,4.5 0,1 0,-9 0Z" />
+        <path android:strokeColor="#FBBC04" android:strokeWidth="2" android:strokeLineCap="round" android:pathData="M12,2.5v2M12,19.5v2M2.5,12h2M19.5,12h2M5.28,5.28l1.41,1.41M17.31,17.31l1.41,1.41M5.28,18.72l1.41,-1.41M17.31,6.69l1.41,-1.41" />
+    </group>
+    <group android:scaleX="0.8" android:scaleY="0.8" android:pivotX="0" android:pivotY="0" android:translateX="5" android:translateY="5.5">
+        <path android:strokeColor="#AEB4BB" android:strokeWidth="1" android:pathData="M7,19H17A3,3 0,0 0,20 16A3,3 0,0 0,17 13H7A3,3 0,0 0,4 16A3,3 0,0 0,7 19Z" />
+        <path android:strokeColor="#AEB4BB" android:strokeWidth="1" android:pathData="M6,12a5,5 0,1 0,10 0a5,5 0,1 0,-10 0Z" />
+        <path android:strokeColor="#AEB4BB" android:strokeWidth="1" android:pathData="M13,13.5a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M7,19H17A3,3 0,0 0,20 16A3,3 0,0 0,17 13H7A3,3 0,0 0,4 16A3,3 0,0 0,7 19Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M6,12a5,5 0,1 0,10 0a5,5 0,1 0,-10 0Z" />
+        <path android:fillColor="#FFFFFF" android:pathData="M13,13.5a3.5,3.5 0,1 0,7 0a3.5,3.5 0,1 0,-7 0Z" />
+    </group>
+</vector>

@@ -211,7 +211,11 @@ class BcSmartspaceCard @JvmOverloads constructor(
     private fun updateIconTint() {
         val icon = iconDrawable ?: return
         when (target.featureType) {
-            SmartspaceTarget.FeatureType.FEATURE_WEATHER -> icon.setTintList(null)
+            // Weather icons are drawn in colour.
+            SmartspaceTarget.FeatureType.FEATURE_WEATHER,
+            SmartspaceTarget.FeatureType.FEATURE_WEATHER_ALERT,
+            -> icon.setTintList(null)
+
             else -> icon.setTint(iconTintColor)
         }
     }

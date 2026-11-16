@@ -632,6 +632,9 @@
     <string name="weather_heavy_snow">Heavy snow</string>
     <string name="weather_thunderstorm">Thunderstorm</string>
     <string name="weather_thunderstorm_hail">Thunderstorm with hail</string>
+    <string name="weather_rain_soon">Rain likely soon</string>
+    <string name="weather_rain_around">Rain likely around %1$s</string>
+    <string name="weather_rain_chance">%1$d%% chance</string>
 
     <!-- Calendar event strings -->
     <string name="calendar_event_no_title">(No title)</string>
