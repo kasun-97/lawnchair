@@ -707,7 +707,19 @@ public class ActivityAllAppsContainerView<T extends Context & ActivityContext>
     /** Called by the tab strip with a page index. */
     @Override
     public void onActivePageChanged(int currentActivePage) {
-        onActivePageChanged(holderForPage(currentActivePage), false);
+        // Lawnchair: the strip reports the new page as soon as the finger lifts, while the snap
+        // animation is starting. The page-change work (scrolling every list to top, header reset)
+        // forces a relayout that dropped that first frame, so run it once the page settles.
+        final AllAppsPagedView pager = mViewPager;
+        if (pager == null) {
+            onActivePageChanged(holderForPage(currentActivePage), false);
+            return;
+        }
+        pager.setOnPageTransitionEndCallback(() -> {
+            if (mViewPager == pager) {
+                onActivePageChanged(holderForPage(pager.getNextPage()), false);
+            }
+        });
     }
 
     private void onActivePageChanged(int currentActivePage, boolean keepSearchFocus) {
