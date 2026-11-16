@@ -45,6 +45,7 @@ import app.lawnchair.smartspace.model.SmartspaceCalendar
 import app.lawnchair.smartspace.model.SmartspaceMode
 import app.lawnchair.smartspace.model.SmartspaceTimeFormat
 import app.lawnchair.smartspace.model.Smartspacer
+import app.lawnchair.smartspace.provider.CalendarEventsProvider
 import app.lawnchair.smartspace.provider.SmartspaceProvider
 import app.lawnchair.smartspace.provider.SmartspaceWidgetReader
 import app.lawnchair.ui.preferences.LocalIsExpandedScreen
@@ -144,6 +145,11 @@ private fun LawnchairSmartspaceSettings(
                             description = if (replaced) stringResource(id = R.string.smartspace_google_weather_replaced) else null,
                             enabled = !replaced,
                         )
+                        if (it is CalendarEventsProvider) {
+                            ExpandAndShrink(visible = it.enabledPref.getAdapter().state.value) {
+                                SmartspaceCalendarWindowPreference()
+                            }
+                        }
                     }
                 }
         }
@@ -255,6 +261,30 @@ fun SmartspaceDateAndTimePreferences(
             SmartspaceTimeFormatPreference()
         }
     }
+}
+
+@Composable
+fun SmartspaceCalendarWindowPreference(
+    modifier: Modifier = Modifier,
+) {
+    val entries = remember {
+        CalendarEventsProvider.WINDOW_CHOICES.map { hours ->
+            ListPreferenceEntry(hours) {
+                if (hours == CalendarEventsProvider.REST_OF_TODAY) {
+                    stringResource(id = R.string.calendar_window_rest_of_today)
+                } else {
+                    stringResource(id = R.string.calendar_window_hours, hours)
+                }
+            }
+        }
+    }
+
+    ListPreference(
+        adapter = preferenceManager2().smartspaceCalendarWindowHours.getAdapter(),
+        entries = entries,
+        label = stringResource(id = R.string.calendar_window_label),
+        modifier = modifier,
+    )
 }
 
 @Composable

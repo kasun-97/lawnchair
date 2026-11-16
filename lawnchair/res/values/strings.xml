@@ -645,6 +645,11 @@
     <string name="calendar_event_tomorrow">Tomorrow %1$s</string>
     <string name="calendar_event_today_all_day">Today · all day</string>
     <string name="calendar_event_tomorrow_all_day">Tomorrow · all day</string>
+    <string name="calendar_event_on_day">%1$s %2$s</string>
+    <string name="calendar_event_day_all_day">%1$s · all day</string>
+    <string name="calendar_window_label">Show events up to</string>
+    <string name="calendar_window_rest_of_today">Rest of today</string>
+    <string name="calendar_window_hours">%1$d hours ahead</string>
     <string name="calendar_event_with_location">%1$s · %2$s</string>
 
     <!-- Next alarm strings -->

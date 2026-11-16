@@ -31,6 +31,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.ZoneOffset
+import java.time.format.TextStyle
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
@@ -46,8 +48,9 @@ import kotlinx.coroutines.flow.onStart
 /**
  * Shows events from the phone's own calendars (any account synced to the device), so it works
  * without the Google app:
- * - the timed event in progress, if any, and the next timed event starting within 24 hours;
- * - otherwise an all-day event happening within the next 24 hours.
+ * - the timed event in progress, if any, and the next timed event starting within the chosen window
+ *   (3–48 hours, or the rest of today; 24 hours by default);
+ * - otherwise an all-day event happening within that window.
  * Declined and cancelled events and hidden calendars are skipped.
  *
  * While this source is on, [SmartspaceProvider] hides the Google widget's event card to avoid duplicates.
@@ -76,7 +79,8 @@ class CalendarEventsProvider(context: Context) :
     override val internalTargets = combine(
         updates,
         PreferenceManager2.getInstance(context).smartspaceTimeFormat.get(),
-    ) { _, timeFormat -> loadCards(timeFormat) }
+        PreferenceManager2.getInstance(context).smartspaceCalendarWindowHours.get(),
+    ) { _, timeFormat, windowHours -> loadCards(timeFormat, windowHours) }
         .distinctUntilChanged()
         .map { cards -> cards.map(::toTarget) }
         .flowOn(Dispatchers.IO)
@@ -98,9 +102,13 @@ class CalendarEventsProvider(context: Context) :
         awaitClose { context.contentResolver.unregisterContentObserver(observer) }
     }
 
-    private fun loadCards(timeFormat: SmartspaceTimeFormat): List<Card> {
+    private fun loadCards(timeFormat: SmartspaceTimeFormat, windowHours: Int): List<Card> {
         val now = System.currentTimeMillis()
-        val windowEnd = now + WINDOW_MS
+        val windowEnd = if (windowHours == REST_OF_TODAY) {
+            LocalDate.now().plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        } else {
+            now + TimeUnit.HOURS.toMillis(windowHours.toLong())
+        }
         val events = queryEvents(now - TimeUnit.DAYS.toMillis(1), windowEnd)
 
         val timed = events.filter { !it.allDay }
@@ -176,7 +184,9 @@ class CalendarEventsProvider(context: Context) :
                 context.getString(R.string.calendar_event_in, countdown, range)
             }
 
-            localDate(event.begin) != localDate(now) -> context.getString(R.string.calendar_event_tomorrow, range)
+            localDate(event.begin) == localDate(now).plusDays(1) -> context.getString(R.string.calendar_event_tomorrow, range)
+
+            localDate(event.begin) != localDate(now) -> context.getString(R.string.calendar_event_on_day, weekday(event.begin), range)
 
             else -> range
         }
@@ -185,9 +195,16 @@ class CalendarEventsProvider(context: Context) :
 
     private fun allDayLabel(event: Event): String {
         val today = LocalDate.now()
-        val label = if (localDate(event.begin).isAfter(today)) R.string.calendar_event_tomorrow_all_day else R.string.calendar_event_today_all_day
-        return withLocation(context.getString(label), event)
+        val day = localDate(event.begin)
+        val label = when {
+            !day.isAfter(today) -> context.getString(R.string.calendar_event_today_all_day)
+            day == today.plusDays(1) -> context.getString(R.string.calendar_event_tomorrow_all_day)
+            else -> context.getString(R.string.calendar_event_day_all_day, weekday(event.begin))
+        }
+        return withLocation(label, event)
     }
+
+    private fun weekday(millis: Long): String = localDate(millis).dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault())
 
     private fun withLocation(label: String, event: Event): String = event.location
         ?.takeUnless(::isWebLink)
@@ -235,7 +252,9 @@ class CalendarEventsProvider(context: Context) :
     private data class Card(val event: Event, val subtitle: String, val score: Float)
 
     companion object {
-        private val WINDOW_MS = TimeUnit.HOURS.toMillis(24)
+        /** Window setting value meaning "until midnight" rather than a number of hours. */
+        const val REST_OF_TODAY = 0
+        val WINDOW_CHOICES = listOf(REST_OF_TODAY, 3, 6, 12, 24, 48)
         private val SOON_MS = TimeUnit.HOURS.toMillis(1)
     }
 }

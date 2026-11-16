@@ -838,6 +838,12 @@ class PreferenceManager2 @Inject constructor(
         defaultValue = true,
     )
 
+    /** Hours ahead the calendar card looks, or 0 for the rest of today. */
+    val smartspaceCalendarWindowHours = preference(
+        key = intPreferencesKey("smartspace_calendar_window_hours"),
+        defaultValue = 24,
+    )
+
     val smartspaceNextAlarm = preference(
         key = booleanPreferencesKey("enable_smartspace_next_alarm"),
         defaultValue = true,
