@@ -96,11 +96,9 @@ public class PersonalWorkSlidingTabStrip extends LinearLayout implements PageInd
 
     private void styleTab(Button tab) {
         tab.setAllCaps(false);
-        // Lawnchair: pills are drawn by the strip (see dispatchDraw); the button only keeps a
-        // press ripple, and its text colour follows the sliding pill.
-        tab.setBackground(new RippleDrawable(
-                getContext().getColorStateList(R.color.accent_ripple_color), null,
-                DrawableTokens.AllAppsTabsMaskDrawable.resolve(getContext())));
+        // Lawnchair: pills are drawn by the strip (see dispatchDraw) and the sliding pill is the
+        // only tap feedback; a press ripple on top of it read as two animations at once.
+        tab.setBackground(null);
         tab.setTextColor(mTabTextColor);
         FontManager.INSTANCE.get(getContext()).setCustomFont(tab, R.id.font_body_medium);
     }
