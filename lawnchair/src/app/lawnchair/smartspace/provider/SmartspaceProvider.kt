@@ -29,6 +29,8 @@ class SmartspaceProvider @Inject constructor(
         SmartspaceWidgetReader(context),
         BatteryStatusProvider(context),
         TorchProvider(context),
+        NextAlarmProvider(context),
+        DoNotDisturbProvider(context),
         NowPlayingProvider(context),
         OnboardingProvider(context),
     )

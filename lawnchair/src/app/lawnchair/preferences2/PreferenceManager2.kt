@@ -828,6 +828,16 @@ class PreferenceManager2 @Inject constructor(
         defaultValue = true,
     )
 
+    val smartspaceNextAlarm = preference(
+        key = booleanPreferencesKey("enable_smartspace_next_alarm"),
+        defaultValue = true,
+    )
+
+    val smartspaceDnd = preference(
+        key = booleanPreferencesKey("enable_smartspace_dnd"),
+        defaultValue = true,
+    )
+
     val smartspaceNowPlaying = preference(
         key = booleanPreferencesKey("enable_smartspace_now_playing"),
         defaultValue = true,

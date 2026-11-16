@@ -604,6 +604,18 @@
     <string name="smartspace_torch">Flashlight status</string>
     <string name="smartspace_now_playing">Now playing</string>
     <string name="smartspace_onboarding">Onboarding</string>
+    <string name="smartspace_next_alarm">Next alarm</string>
+    <string name="smartspace_dnd">Do Not Disturb</string>
+
+    <!-- Next alarm strings -->
+    <string name="next_alarm_title">Alarm %1$s</string>
+    <string name="next_alarm_in">In %1$s</string>
+
+    <!-- Do Not Disturb strings -->
+    <string name="dnd_on">Do Not Disturb on</string>
+    <string name="dnd_priority_only">Priority only</string>
+    <string name="dnd_alarms_only">Alarms only</string>
+    <string name="dnd_total_silence">Total silence</string>
 
     <!-- Torch strings -->
     <string name="torch_status_on">Flashlight on</string>
