@@ -828,6 +828,11 @@ class PreferenceManager2 @Inject constructor(
         defaultValue = true,
     )
 
+    val smartspaceCalendarEvents = preference(
+        key = booleanPreferencesKey("enable_smartspace_calendar_events"),
+        defaultValue = true,
+    )
+
     val smartspaceNextAlarm = preference(
         key = booleanPreferencesKey("enable_smartspace_next_alarm"),
         defaultValue = true,

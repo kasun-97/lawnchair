@@ -25,8 +25,11 @@ class SmartspaceProvider @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : SafeCloseable {
 
+    private val calendarEvents = CalendarEventsProvider(context)
+
     val dataSources = listOf(
         SmartspaceWidgetReader(context),
+        calendarEvents,
         BatteryStatusProvider(context),
         TorchProvider(context),
         NextAlarmProvider(context),
@@ -38,6 +41,14 @@ class SmartspaceProvider @Inject constructor(
     private val state = dataSources
         .map { it.targets }
         .reduce { acc, flow -> flow.combine(acc) { a, b -> a + b } }
+        // With the phone calendar card on, the Google widget only supplies weather.
+        .combine(calendarEvents.enabledPref.get()) { state, calendarOn ->
+            if (calendarOn) {
+                state.copy(targets = state.targets.filterNot { it.id == SmartspaceWidgetReader.EVENT_CARD_ID })
+            } else {
+                state
+            }
+        }
         .shareIn(
             MainScope(),
             SharingStarted.WhileSubscribed(),

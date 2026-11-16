@@ -97,7 +97,7 @@ class SmartspaceWidgetReader(context: Context) :
             val ttl = title.text.toString() + if (subtitle2 != null) subtitle.text.toString() else ""
             val sub = subtitle2 ?: subtitle
             SmartspaceTarget(
-                id = "smartspaceWidgetCard",
+                id = EVENT_CARD_ID,
                 headerAction = SmartspaceAction(
                     id = "smartspaceWidgetCardAction",
                     icon = Icon.createWithBitmap(cardIcon),
@@ -159,6 +159,8 @@ class SmartspaceWidgetReader(context: Context) :
     }
 
     companion object {
+        /** The widget's non-weather card (usually a calendar event). */
+        const val EVENT_CARD_ID = "smartspaceWidgetCard"
         private const val GSA_PACKAGE = "com.google.android.googlequicksearchbox"
         private const val WIDGET_CLASS_NAME = "com.google.android.apps.gsa.staticplugins.smartspace.widget.SmartspaceWidgetProvider"
         private const val GSA_WEATHER = "com.google.android.apps.search.weather.WeatherExportedActivity"

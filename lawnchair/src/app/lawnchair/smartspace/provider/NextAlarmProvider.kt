@@ -6,19 +6,17 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.drawable.Icon
 import android.provider.AlarmClock
-import android.text.format.DateFormat
 import androidx.core.content.getSystemService
 import app.lawnchair.preferences2.PreferenceManager2
 import app.lawnchair.smartspace.model.SmartspaceAction
 import app.lawnchair.smartspace.model.SmartspaceScores
 import app.lawnchair.smartspace.model.SmartspaceTarget
 import app.lawnchair.smartspace.model.SmartspaceTimeFormat
+import app.lawnchair.smartspace.model.formatTime
 import app.lawnchair.util.broadcastReceiverFlow
 import app.lawnchair.util.formatShortElapsedTimeRoundingUpToMinutes
 import com.android.launcher3.R
 import com.android.launcher3.Utilities
-import java.util.Date
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -69,7 +67,7 @@ class NextAlarmProvider(context: Context) :
         // Tapping must open a screen; a show intent that starts a service or broadcast does nothing visible.
         val showActivity = showIntent?.takeIf { !Utilities.ATLEAST_S || it.isActivity }
 
-        val time = formatTime(alarm.triggerTime, timeFormat)
+        val time = timeFormat.formatTime(context, alarm.triggerTime)
         val countdown = formatShortElapsedTimeRoundingUpToMinutes(context, remaining)
         return SmartspaceTarget(
             id = "nextAlarm",
@@ -89,16 +87,6 @@ class NextAlarmProvider(context: Context) :
     private fun clockPackages(): Set<String> = listOf(AlarmClock.ACTION_SHOW_ALARMS, AlarmClock.ACTION_SET_ALARM)
         .flatMap { context.packageManager.queryIntentActivities(Intent(it), 0) }
         .mapTo(mutableSetOf()) { it.activityInfo.packageName }
-
-    private fun formatTime(millis: Long, timeFormat: SmartspaceTimeFormat): String {
-        val use24Hour = when (timeFormat) {
-            SmartspaceTimeFormat.TwelveHourFormat -> false
-            SmartspaceTimeFormat.TwentyFourHourFormat -> true
-            SmartspaceTimeFormat.FollowSystem -> DateFormat.is24HourFormat(context)
-        }
-        val pattern = DateFormat.getBestDateTimePattern(Locale.getDefault(), if (use24Hour) "Hm" else "hm")
-        return DateFormat.format(pattern, Date(millis)).toString()
-    }
 
     companion object {
         private val WINDOW_MS = TimeUnit.HOURS.toMillis(12)

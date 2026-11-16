@@ -604,8 +604,19 @@
     <string name="smartspace_torch">Flashlight status</string>
     <string name="smartspace_now_playing">Now playing</string>
     <string name="smartspace_onboarding">Onboarding</string>
+    <string name="smartspace_calendar_events">Calendar events</string>
     <string name="smartspace_next_alarm">Next alarm</string>
     <string name="smartspace_dnd">Do Not Disturb</string>
+
+    <!-- Calendar event strings -->
+    <string name="calendar_event_no_title">(No title)</string>
+    <string name="calendar_event_time_range">%1$s – %2$s</string>
+    <string name="calendar_event_now_until">Now · until %1$s</string>
+    <string name="calendar_event_in">In %1$s · %2$s</string>
+    <string name="calendar_event_tomorrow">Tomorrow %1$s</string>
+    <string name="calendar_event_today_all_day">Today · all day</string>
+    <string name="calendar_event_tomorrow_all_day">Tomorrow · all day</string>
+    <string name="calendar_event_with_location">%1$s · %2$s</string>
 
     <!-- Next alarm strings -->
     <string name="next_alarm_title">Alarm %1$s</string>
