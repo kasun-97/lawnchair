@@ -16,6 +16,7 @@ import app.lawnchair.smartspace.model.SmartspaceTimeFormat
 import app.lawnchair.util.broadcastReceiverFlow
 import app.lawnchair.util.formatShortElapsedTimeRoundingUpToMinutes
 import com.android.launcher3.R
+import com.android.launcher3.Utilities
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -25,8 +26,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 
 /**
- * Shows the next alarm set in any clock app once it is less than [WINDOW_MS] away,
+ * Shows the next alarm set in a clock app once it is less than [WINDOW_MS] away,
  * with a countdown that refreshes every minute.
+ *
+ * Other apps can register "alarm clocks" too (MIUI's calendar provider does it for event
+ * reminders), so entries whose show intent was not created by a clock app are ignored.
  */
 class NextAlarmProvider(context: Context) :
     SmartspaceDataSource(
@@ -60,6 +64,10 @@ class NextAlarmProvider(context: Context) :
         val alarm = alarmManager?.nextAlarmClock ?: return null
         val remaining = alarm.triggerTime - System.currentTimeMillis()
         if (remaining <= 0 || remaining > WINDOW_MS) return null
+        val showIntent = alarm.showIntent
+        if (showIntent != null && showIntent.creatorPackage !in clockPackages()) return null
+        // Tapping must open a screen; a show intent that starts a service or broadcast does nothing visible.
+        val showActivity = showIntent?.takeIf { !Utilities.ATLEAST_S || it.isActivity }
 
         val time = formatTime(alarm.triggerTime, timeFormat)
         val countdown = formatShortElapsedTimeRoundingUpToMinutes(context, remaining)
@@ -70,13 +78,17 @@ class NextAlarmProvider(context: Context) :
                 icon = icon,
                 title = context.getString(R.string.next_alarm_title, time),
                 subtitle = countdown?.let { context.getString(R.string.next_alarm_in, it) },
-                pendingIntent = alarm.showIntent,
-                intent = if (alarm.showIntent == null) Intent(AlarmClock.ACTION_SHOW_ALARMS) else null,
+                pendingIntent = showActivity,
+                intent = if (showActivity == null) Intent(AlarmClock.ACTION_SHOW_ALARMS) else null,
             ),
             score = SmartspaceScores.SCORE_ALARM,
             featureType = SmartspaceTarget.FeatureType.FEATURE_UPCOMING_ALARM,
         )
     }
+
+    private fun clockPackages(): Set<String> = listOf(AlarmClock.ACTION_SHOW_ALARMS, AlarmClock.ACTION_SET_ALARM)
+        .flatMap { context.packageManager.queryIntentActivities(Intent(it), 0) }
+        .mapTo(mutableSetOf()) { it.activityInfo.packageName }
 
     private fun formatTime(millis: Long, timeFormat: SmartspaceTimeFormat): String {
         val use24Hour = when (timeFormat) {
