@@ -599,7 +599,8 @@
     <string name="smartspace_time_24_hour_format">24-hour format</string>
 
     <!-- Available targets -->
-    <string name="smartspace_weather">Weather</string>
+    <string name="smartspace_weather">Weather (Google app)</string>
+    <string name="smartspace_open_meteo_weather">Weather (Open-Meteo)</string>
     <string name="smartspace_battery_status">Battery status</string>
     <string name="smartspace_torch">Flashlight status</string>
     <string name="smartspace_now_playing">Now playing</string>
@@ -607,6 +608,30 @@
     <string name="smartspace_calendar_events">Calendar events</string>
     <string name="smartspace_next_alarm">Next alarm</string>
     <string name="smartspace_dnd">Do Not Disturb</string>
+
+    <!-- Weather (Open-Meteo) strings -->
+    <string name="weather_temperature_celsius">%1$d°C</string>
+    <string name="weather_temperature_and_condition">%1$s · %2$s</string>
+    <string name="weather_sunny">Sunny</string>
+    <string name="weather_clear">Clear</string>
+    <string name="weather_mostly_sunny">Mostly sunny</string>
+    <string name="weather_mostly_clear">Mostly clear</string>
+    <string name="weather_partly_cloudy">Partly cloudy</string>
+    <string name="weather_cloudy">Cloudy</string>
+    <string name="weather_fog">Fog</string>
+    <string name="weather_drizzle">Drizzle</string>
+    <string name="weather_freezing_drizzle">Freezing drizzle</string>
+    <string name="weather_light_rain">Light rain</string>
+    <string name="weather_rain">Rain</string>
+    <string name="weather_heavy_rain">Heavy rain</string>
+    <string name="weather_freezing_rain">Freezing rain</string>
+    <string name="weather_showers">Showers</string>
+    <string name="weather_heavy_showers">Heavy showers</string>
+    <string name="weather_light_snow">Light snow</string>
+    <string name="weather_snow">Snow</string>
+    <string name="weather_heavy_snow">Heavy snow</string>
+    <string name="weather_thunderstorm">Thunderstorm</string>
+    <string name="weather_thunderstorm_hail">Thunderstorm with hail</string>
 
     <!-- Calendar event strings -->
     <string name="calendar_event_no_title">(No title)</string>

@@ -15,6 +15,7 @@ import com.android.launcher3.util.DaggerSingletonObject
 import com.android.launcher3.util.SafeCloseable
 import javax.inject.Inject
 import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
@@ -25,10 +26,13 @@ class SmartspaceProvider @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : SafeCloseable {
 
+    private val googleWidget = SmartspaceWidgetReader(context)
+    private val weather = WeatherProvider(context)
     private val calendarEvents = CalendarEventsProvider(context)
 
     val dataSources = listOf(
-        SmartspaceWidgetReader(context),
+        googleWidget,
+        weather,
         calendarEvents,
         BatteryStatusProvider(context),
         TorchProvider(context),
@@ -39,7 +43,7 @@ class SmartspaceProvider @Inject constructor(
     )
 
     private val state = dataSources
-        .map { it.targets }
+        .map(::stateOf)
         .reduce { acc, flow -> flow.combine(acc) { a, b -> a + b } }
         // With the phone calendar card on, the Google widget only supplies weather.
         .combine(calendarEvents.enabledPref.get()) { state, calendarOn ->
@@ -54,6 +58,23 @@ class SmartspaceProvider @Inject constructor(
             SharingStarted.WhileSubscribed(),
             replay = 1,
         )
+
+    /**
+     * The Open-Meteo weather source replaces the Google widget: while it is on, the widget's
+     * cards and setup request are dropped; while it is off, its own placeholder date page is dropped.
+     */
+    private fun stateOf(source: SmartspaceDataSource): Flow<SmartspaceDataSource.State> = when (source) {
+        googleWidget -> source.targets.combine(weather.enabledPref.get()) { state, weatherOn ->
+            if (weatherOn) SmartspaceDataSource.State() else state
+        }
+
+        weather -> source.targets.combine(weather.enabledPref.get()) { state, weatherOn ->
+            if (weatherOn) state else SmartspaceDataSource.State()
+        }
+
+        else -> source.targets
+    }
+
     val targets = state
         .map {
             if (it.requiresSetup.isNotEmpty()) {
