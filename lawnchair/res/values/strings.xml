@@ -601,6 +601,7 @@
     <!-- Available targets -->
     <string name="smartspace_weather">Weather (Google app)</string>
     <string name="smartspace_open_meteo_weather">Weather (Open-Meteo)</string>
+    <string name="smartspace_google_weather_replaced">Not used while Weather (Open-Meteo) is on</string>
     <string name="smartspace_battery_status">Battery status</string>
     <string name="smartspace_torch">Flashlight status</string>
     <string name="smartspace_now_playing">Now playing</string>

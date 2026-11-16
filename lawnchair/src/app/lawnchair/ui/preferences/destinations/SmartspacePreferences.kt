@@ -46,6 +46,7 @@ import app.lawnchair.smartspace.model.SmartspaceMode
 import app.lawnchair.smartspace.model.SmartspaceTimeFormat
 import app.lawnchair.smartspace.model.Smartspacer
 import app.lawnchair.smartspace.provider.SmartspaceProvider
+import app.lawnchair.smartspace.provider.SmartspaceWidgetReader
 import app.lawnchair.ui.preferences.LocalIsExpandedScreen
 import app.lawnchair.ui.preferences.components.controls.ClickablePreference
 import app.lawnchair.ui.preferences.components.controls.ListPreference
@@ -122,6 +123,8 @@ private fun LawnchairSmartspaceSettings(
     smartspaceProvider: SmartspaceProvider,
     modifier: Modifier = Modifier,
 ) {
+    // The Open-Meteo source replaces the Google widget, so the widget's switch does nothing while it is on.
+    val openMeteoWeatherOn = preferenceManager2().smartspaceOpenMeteoWeather.getAdapter().state.value
     Column(
         modifier = modifier,
     ) {
@@ -134,9 +137,12 @@ private fun LawnchairSmartspaceSettings(
                 .filter { it.isAvailable }
                 .forEach {
                     key(it.providerName) {
+                        val replaced = it is SmartspaceWidgetReader && openMeteoWeatherOn
                         SwitchPreference(
                             adapter = it.enabledPref.getAdapter(),
                             label = stringResource(id = it.providerName),
+                            description = if (replaced) stringResource(id = R.string.smartspace_google_weather_replaced) else null,
+                            enabled = !replaced,
                         )
                     }
                 }
