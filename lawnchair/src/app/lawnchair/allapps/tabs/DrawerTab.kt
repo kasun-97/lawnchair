@@ -29,6 +29,5 @@ object DrawerTabs {
 
     /** Component keys that must be left out of the "All" tab. */
     @JvmStatic
-    fun keysHiddenFromAll(tabs: List<DrawerTab>): Set<String> =
-        tabs.asSequence().filter { it.hideFromAll }.flatMap { it.apps.asSequence() }.toSet()
+    fun keysHiddenFromAll(tabs: List<DrawerTab>): Set<String> = tabs.asSequence().filter { it.hideFromAll }.flatMap { it.apps.asSequence() }.toSet()
 }

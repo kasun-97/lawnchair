@@ -310,7 +310,7 @@ fun FeedContent(
                             widget != null -> FeedWidgetBlock(
                                 widget = widget,
                                 resizing = resizing,
-                                onResized = { resized ->
+                                onResize = { resized ->
                                     scope.launch {
                                         prefs2.feedWidgets.set(
                                             prefs2.feedWidgets.get().first().map { if (it.id == resized.id) resized else it },
@@ -352,7 +352,7 @@ fun FeedContent(
                         item(key = HEADLINES_KEY) {
                             HeadlinesTitle(
                                 title = headlinesTitle,
-                                onHeld = {
+                                onHold = {
                                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                                     renaming = RenameTarget(HEADLINES_KEY, headlinesTitle, canBeEmpty = true)
                                 },
@@ -489,10 +489,10 @@ private fun FeedHeader(
 @Composable
 private fun HeadlinesTitle(
     title: String,
-    onHeld: () -> Unit,
+    onHold: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val currentOnHeld by rememberUpdatedState(onHeld)
+    val currentOnHold by rememberUpdatedState(onHold)
     Text(
         text = title,
         style = MaterialTheme.typography.titleSmall,
@@ -501,7 +501,7 @@ private fun HeadlinesTitle(
         overflow = TextOverflow.Ellipsis,
         modifier = modifier
             .fillMaxWidth()
-            .pointerInput(Unit) { detectTapGestures(onLongPress = { currentOnHeld() }) }
+            .pointerInput(Unit) { detectTapGestures(onLongPress = { currentOnHold() }) }
             // With the padding of the first headline, as far from them as an app section's title is from its apps.
             .padding(start = HorizontalPadding, top = 8.dp, end = HorizontalPadding),
     )

@@ -26,14 +26,14 @@ import app.lawnchair.ui.preferences.components.colorpreference.ColorSelection
 import app.lawnchair.ui.preferences.components.search.SearchProviderId
 import app.lawnchair.ui.preferences.components.search.SearchProviderPreferenceScreen
 import app.lawnchair.ui.preferences.destinations.AppDrawerFoldersPreference
-import app.lawnchair.ui.preferences.destinations.DrawerTabEditorPreferences
-import app.lawnchair.ui.preferences.destinations.DrawerTabsPreferences
 import app.lawnchair.ui.preferences.destinations.AppDrawerPreferences
 import app.lawnchair.ui.preferences.destinations.BackupAndRestorePreference
 import app.lawnchair.ui.preferences.destinations.CustomIconShapePreference
 import app.lawnchair.ui.preferences.destinations.DebugMenuPreferences
 import app.lawnchair.ui.preferences.destinations.DismissedPredictionAppsPreferences
 import app.lawnchair.ui.preferences.destinations.DockPreferences
+import app.lawnchair.ui.preferences.destinations.DrawerTabEditorPreferences
+import app.lawnchair.ui.preferences.destinations.DrawerTabsPreferences
 import app.lawnchair.ui.preferences.destinations.DummyPreference
 import app.lawnchair.ui.preferences.destinations.ExperimentalFeaturesPreferences
 import app.lawnchair.ui.preferences.destinations.FeatureFlagsPreference

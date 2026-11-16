@@ -30,8 +30,7 @@ data class DrawerTabsConfig(
         if (isActive) DrawerTabs.keysHiddenFromAll(tabs) else emptySet()
     }
 
-    fun allTabTitle(context: Context): String =
-        allTitle.ifBlank { context.getString(R.string.drawer_tabs_all_default_title) }
+    fun allTabTitle(context: Context): String = allTitle.ifBlank { context.getString(R.string.drawer_tabs_all_default_title) }
 
     companion object {
         @JvmField

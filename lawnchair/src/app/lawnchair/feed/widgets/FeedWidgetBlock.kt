@@ -29,6 +29,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -65,7 +66,7 @@ private enum class Edge { Start, End, Bottom }
  * is set. Draws nothing once the widget is gone.
  *
  * While [resizing], the widget is covered by a frame whose handles change its size; the result is
- * reported through [onResized] when a handle is let go. The frame's corner button asks for
+ * reported through [onResize] when a handle is let go. The frame's corner button asks for
  * [onRemove]. [onTitleBottomChange] reports how far down the block the title reaches, in pixels (0
  * without a title), so a hold can be told apart by where it lands.
  */
@@ -73,7 +74,7 @@ private enum class Edge { Start, End, Bottom }
 fun FeedWidgetBlock(
     widget: FeedWidget,
     resizing: Boolean,
-    onResized: (FeedWidget) -> Unit,
+    onResize: (FeedWidget) -> Unit,
     onRemove: () -> Unit,
     onTitleBottomChange: (Float) -> Unit,
     modifier: Modifier = Modifier,
@@ -96,7 +97,7 @@ fun FeedWidgetBlock(
     var shown by remember(widget) { mutableStateOf(widget) }
     // Set while a handle is held: the frame then follows the finger exactly.
     var dragSize by remember { mutableStateOf<DpSize?>(null) }
-    var blockHeightPx by remember { mutableStateOf(0) }
+    var blockHeightPx by remember { mutableIntStateOf(0) }
 
     BoxWithConstraints(
         modifier = modifier
@@ -175,7 +176,7 @@ fun FeedWidgetBlock(
                                     widthDp = if (size.width >= fullWidth - 8.dp) 0 else size.width.value.roundToInt(),
                                 )
                                 shown = resized
-                                onResized(resized)
+                                onResize(resized)
                             }
                             dragSize = null
                         },
