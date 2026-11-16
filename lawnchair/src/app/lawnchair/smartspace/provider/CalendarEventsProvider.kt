@@ -15,6 +15,7 @@ import android.provider.CalendarContract
 import android.provider.CalendarContract.Attendees
 import android.provider.CalendarContract.Events
 import android.provider.CalendarContract.Instances
+import android.util.Patterns
 import androidx.activity.result.contract.ActivityResultContracts
 import app.lawnchair.BlankActivity
 import app.lawnchair.preferences2.PreferenceManager2
@@ -188,7 +189,13 @@ class CalendarEventsProvider(context: Context) :
         return withLocation(context.getString(label), event)
     }
 
-    private fun withLocation(label: String, event: Event): String = event.location?.let { context.getString(R.string.calendar_event_with_location, label, it) } ?: label
+    private fun withLocation(label: String, event: Event): String = event.location
+        ?.takeUnless(::isWebLink)
+        ?.let { context.getString(R.string.calendar_event_with_location, label, it) }
+        ?: label
+
+    /** Meeting links (Zoom, Meet, Teams) fill the line without saying where the event is. */
+    private fun isWebLink(location: String): Boolean = "://" in location || Patterns.WEB_URL.matcher(location.trim()).matches()
 
     private fun toTarget(card: Card): SmartspaceTarget {
         val event = card.event
