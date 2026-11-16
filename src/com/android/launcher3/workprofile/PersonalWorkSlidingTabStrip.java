@@ -16,7 +16,10 @@
 package com.android.launcher3.workprofile;
 
 import android.content.Context;
+import android.content.res.ColorStateList;
 import android.content.res.TypedArray;
+import android.graphics.Canvas;
+import android.graphics.drawable.Drawable;
 import android.graphics.drawable.RippleDrawable;
 import android.graphics.drawable.StateListDrawable;
 import android.util.AttributeSet;
@@ -31,9 +34,11 @@ import java.util.List;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.graphics.ColorUtils;
 
 import com.android.launcher3.DeviceProfile;
 import com.android.launcher3.R;
+import com.android.launcher3.Utilities;
 import com.android.launcher3.pageindicators.PageIndicator;
 import com.android.launcher3.views.ActivityContext;
 
@@ -51,6 +56,13 @@ public class PersonalWorkSlidingTabStrip extends LinearLayout implements PageInd
     // Lawnchair: drawer tabs. When true, tabs keep their natural width and the strip may grow
     // wider than its parent HorizontalScrollView, which then scrolls.
     private boolean mScrollable = false;
+    // Lawnchair: the strip draws the tab pills itself so the selected pill can slide with the
+    // pager scroll instead of jumping between buttons. mPillPos is a fractional page index.
+    private Drawable mTabPill;
+    private Drawable mSelectedTabPill;
+    private int mTabTextColor;
+    private int mSelectedTabTextColor;
+    private float mPillPos = 0f;
 
     public PersonalWorkSlidingTabStrip(@NonNull Context context, @Nullable AttributeSet attrs) {
         super(context, attrs);
@@ -59,6 +71,17 @@ public class PersonalWorkSlidingTabStrip extends LinearLayout implements PageInd
         mIsAlignOnIcon = typedArray.getBoolean(
                 R.styleable.PersonalWorkSlidingTabStrip_alignOnIcon, false);
         typedArray.recycle();
+
+        mTabPill = DrawableTokens.AllAppsTabsBackground.resolve(context);
+        mTabPill.setState(new int[0]);
+        mTabPill.jumpToCurrentState();
+        mSelectedTabPill = DrawableTokens.AllAppsTabsBackground.resolve(context);
+        mSelectedTabPill.setState(new int[] {android.R.attr.state_selected});
+        mSelectedTabPill.jumpToCurrentState();
+        ColorStateList text = ColorStateListTokens.AllAppsTabText.resolve(context);
+        mTabTextColor = text.getColorForState(new int[0], text.getDefaultColor());
+        mSelectedTabTextColor = text.getColorForState(
+                new int[] {android.R.attr.state_selected}, text.getDefaultColor());
     }
 
     // Lawnchair: This function theme the work mode tab and toggle
@@ -73,11 +96,12 @@ public class PersonalWorkSlidingTabStrip extends LinearLayout implements PageInd
 
     private void styleTab(Button tab) {
         tab.setAllCaps(false);
-        // Lawnchair-TODO: StateListDrawable
-//        RippleDrawable background = (RippleDrawable) tab.getBackground();
-//        background.setDrawableByLayerId(android.R.id.mask, DrawableTokens.AllAppsTabsMaskDrawable.resolve(getContext()));
-        tab.setBackground(DrawableTokens.AllAppsTabsBackground.resolve(getContext()));
-        tab.setTextColor(ColorStateListTokens.AllAppsTabText.resolve(getContext()));
+        // Lawnchair: pills are drawn by the strip (see dispatchDraw); the button only keeps a
+        // press ripple, and its text colour follows the sliding pill.
+        tab.setBackground(new RippleDrawable(
+                getContext().getColorStateList(R.color.accent_ripple_color), null,
+                DrawableTokens.AllAppsTabsMaskDrawable.resolve(getContext())));
+        tab.setTextColor(mTabTextColor);
         FontManager.INSTANCE.get(getContext()).setCustomFont(tab, R.id.font_body_medium);
     }
 
@@ -124,6 +148,7 @@ public class PersonalWorkSlidingTabStrip extends LinearLayout implements PageInd
         }
         mLastActivePage = activePage;
         updateTabTextColor(activePage);
+        setPillPosition(activePage);
         if (scrollable) {
             ensureTabVisible(activePage);
         } else if (getParent() instanceof HorizontalScrollView) {
@@ -156,8 +181,63 @@ public class PersonalWorkSlidingTabStrip extends LinearLayout implements PageInd
         }
     }
 
+    /** Lawnchair: moves the selected pill with the pager scroll, so drags and snaps slide it. */
     @Override
-    public void setScroll(int currentScroll, int totalScroll) {}
+    public void setScroll(int currentScroll, int totalScroll) {
+        int count = getChildCount();
+        if (totalScroll <= 0 || count < 2) {
+            return;
+        }
+        if (getLayoutDirection() == LAYOUT_DIRECTION_RTL) {
+            currentScroll = totalScroll - currentScroll;
+        }
+        float progress = Utilities.boundToRange((float) currentScroll / totalScroll, 0f, 1f);
+        setPillPosition(progress * (count - 1));
+    }
+
+    private void setPillPosition(float pos) {
+        mPillPos = pos;
+        for (int i = 0; i < getChildCount(); i++) {
+            View child = getChildAt(i);
+            if (!(child instanceof Button)) {
+                continue;
+            }
+            float selected = Math.max(0f, 1f - Math.abs(pos - i));
+            int color = ColorUtils.blendARGB(mTabTextColor, mSelectedTabTextColor, selected);
+            Button tab = (Button) child;
+            if (tab.getCurrentTextColor() != color) {
+                tab.setTextColor(color);
+            }
+        }
+        invalidate();
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        int count = getChildCount();
+        for (int i = 0; i < count; i++) {
+            View tab = getChildAt(i);
+            if (tab.getVisibility() == VISIBLE) {
+                mTabPill.setBounds(tab.getLeft(), tab.getTop(), tab.getRight(), tab.getBottom());
+                mTabPill.draw(canvas);
+            }
+        }
+        if (count > 0) {
+            float pos = Utilities.boundToRange(mPillPos, 0f, count - 1);
+            int from = (int) pos;
+            int to = Math.min(from + 1, count - 1);
+            float t = pos - from;
+            View a = getChildAt(from);
+            View b = getChildAt(to);
+            mSelectedTabPill.setBounds(
+                    Math.round(Utilities.mapRange(t, a.getLeft(), b.getLeft())),
+                    a.getTop(),
+                    Math.round(Utilities.mapRange(t, a.getRight(), b.getRight())),
+                    a.getBottom());
+            mSelectedTabPill.draw(canvas);
+        }
+        super.dispatchDraw(canvas);
+    }
 
     @Override
     public void setActiveMarker(int activePage) {
