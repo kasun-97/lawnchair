@@ -6,6 +6,9 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import app.lawnchair.gestures.config.GestureHandlerConfig
@@ -13,6 +16,9 @@ import app.lawnchair.gestures.handlers.OpenAppTarget
 import app.lawnchair.ui.preferences.LocalIsExpandedScreen
 import app.lawnchair.ui.preferences.components.AppItem
 import app.lawnchair.ui.preferences.components.AppItemPlaceholder
+import app.lawnchair.ui.preferences.components.appSearchEmpty
+import app.lawnchair.ui.preferences.components.appSearchField
+import app.lawnchair.ui.preferences.components.filterByQuery
 import app.lawnchair.ui.preferences.components.layout.PreferenceLazyColumn
 import app.lawnchair.ui.preferences.components.layout.PreferenceScaffold
 import app.lawnchair.ui.preferences.components.layout.preferenceGroupItems
@@ -27,6 +33,8 @@ import com.google.android.msdl.data.model.MSDLToken
 fun PickAppForGesture() {
     val mMSDLPlayerWrapper = MSDLPlayerWrapper.INSTANCE.get(LocalContext.current)
     val apps by appsState()
+    var query by remember { mutableStateOf("") }
+    val shownApps = remember(apps, query) { apps.filterByQuery(query) }
     val state = rememberLazyListState()
 
     val activity = LocalContext.current as Activity
@@ -47,8 +55,10 @@ fun PickAppForGesture() {
         Crossfade(targetState = apps.isNotEmpty(), label = "") { present ->
             if (present) {
                 PreferenceLazyColumn(it, state = state) {
+                    appSearchField(query = query, onQueryChange = { query = it })
+                    if (shownApps.isEmpty()) appSearchEmpty(query)
                     preferenceGroupItems(
-                        items = apps,
+                        items = shownApps,
                         isFirstChild = true,
                     ) { _, app ->
                         AppItem(

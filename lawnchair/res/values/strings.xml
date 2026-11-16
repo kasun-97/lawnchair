@@ -206,6 +206,7 @@
     <string name="drawer_tabs_title_hint">Tab title</string>
     <string name="drawer_tabs_hide_from_all">Hide these apps from "All"</string>
     <string name="drawer_tabs_manage_apps">Choose apps</string>
+    <string name="app_search_clear">Clear search</string>
     <string name="drawer_tabs_delete">Delete tab</string>
     <string name="drawer_tabs_empty">No tabs yet. Add one, then choose its apps.</string>
     <plurals name="drawer_tabs_app_count">

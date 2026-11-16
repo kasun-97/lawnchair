@@ -26,6 +26,9 @@ import app.lawnchair.ui.OverflowMenuGrouped
 import app.lawnchair.ui.preferences.LocalIsExpandedScreen
 import app.lawnchair.ui.preferences.components.AppItem
 import app.lawnchair.ui.preferences.components.AppItemPlaceholder
+import app.lawnchair.ui.preferences.components.appSearchEmpty
+import app.lawnchair.ui.preferences.components.appSearchField
+import app.lawnchair.ui.preferences.components.filterByQuery
 import app.lawnchair.ui.preferences.components.layout.PreferenceLazyColumn
 import app.lawnchair.ui.preferences.components.layout.PreferenceScaffold
 import app.lawnchair.ui.preferences.components.layout.preferenceGroupItems
@@ -64,6 +67,8 @@ fun DismissedPredictionAppsPreferences(
     }
 
     val apps by appsState(comparator = dismissedPredictionAppsComparator(dismissedComponentKeys))
+    var query by remember { mutableStateOf("") }
+    val shownApps = remember(apps, query) { apps.filterByQuery(query) }
 
     PreferenceScaffold(
         label = if (dismissedApps.isEmpty()) {
@@ -85,6 +90,8 @@ fun DismissedPredictionAppsPreferences(
         Crossfade(targetState = apps.isNotEmpty(), label = "") { present ->
             if (present) {
                 PreferenceLazyColumn(it, state = rememberLazyListState()) {
+                    appSearchField(query = query, onQueryChange = { query = it })
+                    if (shownApps.isEmpty()) appSearchEmpty(query)
                     val toggleDismissedApp = { app: App ->
                         val userSerial = userSerials[app.key.user] ?: userCache.getSerialNumberForUser(app.key.user).toString()
                         val key = PredictionAppKey.create(app.key.componentName, userSerial)
@@ -96,7 +103,7 @@ fun DismissedPredictionAppsPreferences(
                         dismissedApps = dismissedAppsStore.getEntries().toSet()
                     }
                     preferenceGroupItems(
-                        items = apps,
+                        items = shownApps,
                         isFirstChild = true,
                     ) { _, app ->
                         AppItem(

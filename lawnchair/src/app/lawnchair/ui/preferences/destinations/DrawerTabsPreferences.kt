@@ -40,8 +40,11 @@ import app.lawnchair.ui.preferences.LocalNavController
 import app.lawnchair.ui.preferences.components.AppItem
 import app.lawnchair.ui.preferences.components.AppItemPlaceholder
 import app.lawnchair.ui.preferences.components.NavigationActionPreference
+import app.lawnchair.ui.preferences.components.appSearchEmpty
+import app.lawnchair.ui.preferences.components.appSearchField
 import app.lawnchair.ui.preferences.components.controls.ClickablePreference
 import app.lawnchair.ui.preferences.components.controls.SwitchPreference
+import app.lawnchair.ui.preferences.components.filterByQuery
 import app.lawnchair.ui.preferences.components.layout.PreferenceGroup
 import app.lawnchair.ui.preferences.components.layout.PreferenceLayout
 import app.lawnchair.ui.preferences.components.layout.PreferenceLayoutLazyColumn
@@ -233,6 +236,8 @@ fun DrawerTabEditorPreferences(
 
     val selected = remember(tab.apps) { tab.apps.toSet() }
     val apps by appsState(comparator = drawerTabAppsComparator(selected))
+    var query by remember { mutableStateOf("") }
+    val shownApps = remember(apps, query) { apps.filterByQuery(query) }
 
     PreferenceLayoutLazyColumn(
         label = tab.title,
@@ -273,8 +278,10 @@ fun DrawerTabEditorPreferences(
             }
         }
         if (apps.isNotEmpty()) {
+            appSearchField(query = query, onQueryChange = { query = it })
+            if (shownApps.isEmpty()) appSearchEmpty(query)
             preferenceGroupItems(
-                items = apps,
+                items = shownApps,
                 isFirstChild = false,
                 heading = {
                     "${stringResource(R.string.drawer_tabs_manage_apps)} (${selected.size})"
