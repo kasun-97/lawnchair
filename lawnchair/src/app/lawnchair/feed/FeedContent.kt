@@ -600,6 +600,7 @@ private fun openArticle(context: Context, article: FeedArticle) {
 
 private fun openFeedSettings(context: Context) {
     context.startActivity(
-        PreferenceActivity.createIntent(context, HomeScreenFeed).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        PreferenceActivity.createIntent(context, HomeScreenFeed)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK),
     )
 }
