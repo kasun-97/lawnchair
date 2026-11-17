@@ -7,7 +7,7 @@
 
 Lawnchair is a free, open-source home app for Android. Taking Launcher3—Android’s default home app—as a starting point, it ports Pixel Launcher features and introduces rich customization options.
 
-This fork tracks upstream's `16-dev` branch (Lawnchair 16, based on Launcher3 from Android 16) and adds the features below on the `profiles` branch.
+This fork tracks upstream's `16-dev` branch (Lawnchair 16, based on Launcher3 from Android 16) and adds the features below on the `development` branch.
 
 ## What this fork adds
 
@@ -35,7 +35,7 @@ This fork tracks upstream's `16-dev` branch (Lawnchair 16, based on Launcher3 fr
 Requirements: JDK 21 and the Android SDK.
 
 ```sh
-git clone --recurse-submodules -b profiles https://github.com/kasun-97/lawnchair.git
+git clone --recurse-submodules -b development https://github.com/kasun-97/lawnchair.git
 cd lawnchair
 export ANDROID_HOME="$HOME/Android/Sdk"
 ./gradlew assembleLawnWithQuickstepGithubDebug
