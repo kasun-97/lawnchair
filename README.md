@@ -3,7 +3,7 @@
 > [!NOTE]
 > This is an **unofficial personal fork** of [Lawnchair](https://github.com/LawnchairLauncher/lawnchair). It is not affiliated with or supported by the Lawnchair team. Please don't report issues from this fork to upstream.
 >
-> There are no prebuilt APKs; build it yourself (see [Building](#building)). For official releases, use the [upstream project](https://github.com/LawnchairLauncher/lawnchair#download).
+> Download the APK from [Releases](https://github.com/kasun-97/lawnchair/releases) (see [Download](#download)). For official releases, use the [upstream project](https://github.com/LawnchairLauncher/lawnchair#download).
 
 Lawnchair is a free, open-source home app for Android. Taking Launcher3—Android’s default home app—as a starting point, it ports Pixel Launcher features and introduces rich customization options.
 
@@ -29,6 +29,15 @@ This fork tracks upstream's `16-dev` branch (Lawnchair 16, based on Launcher3 fr
 
 ### Smaller changes
 - A search field on the app picker pages (drawer tabs, feed sections, hidden apps, gesture app pickers).
+
+## Download
+
+Get the latest APK from [Releases](https://github.com/kasun-97/lawnchair/releases/latest). Releases are tagged by date (for example `2026.11.17`).
+
+- It installs as a separate app (`app.lawnchair.fork`), alongside official Lawnchair.
+- To bring over your home screen from another Lawnchair install, create a backup there (Settings → About → Backup), restore it in this app, then set it as your default home app.
+- Updates install over each other; there is no in-app updater.
+- Signing certificate SHA-256: `84:83:C0:7E:F7:97:94:E9:D9:18:20:42:6D:EA:84:3B:D6:BA:09:19:10:33:8D:D8:AA:FF:C5:0D:06:9B:C5:44`
 
 ## Building
 
