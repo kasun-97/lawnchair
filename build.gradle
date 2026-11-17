@@ -226,6 +226,9 @@ android {
         }
 
         debug {
+            // Fork: keystore.properties holds the fork's release key; keep debug builds on the
+            // debug key so they still install over the existing app.lawnchair.debug.
+            signingConfig signingConfigs.debug
             applicationIdSuffix ".debug"
             resValue("string", "derived_app_name", "Lawnchair (Debug)")
 
@@ -282,6 +285,13 @@ android {
             isDefault true
         }
 
+        // Personal fork: own app ID so it installs beside official Lawnchair; no "nightly" in the
+        // ID, which would turn on the updater that pulls upstream nightly builds.
+        fork {
+            applicationId 'app.lawnchair.fork'
+            dimension "channel"
+        }
+
         configureEach {
             resValue("string", "launcher_component", "${applicationId}/app.lawnchair.LawnchairLauncher")
         }
@@ -333,6 +343,14 @@ android {
         }
 
         lawnWithQuickstepPlay {
+            manifest.srcFile "quickstep/AndroidManifest-launcher.xml"
+        }
+
+        fork {
+            manifest.srcFile "github/AndroidManifest.xml"
+        }
+
+        lawnWithQuickstepFork {
             manifest.srcFile "quickstep/AndroidManifest-launcher.xml"
         }
 
