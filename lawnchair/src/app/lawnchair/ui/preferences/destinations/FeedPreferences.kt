@@ -3,7 +3,10 @@ package app.lawnchair.ui.preferences.destinations
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import app.lawnchair.preferences.getAdapter
+import app.lawnchair.preferences2.preferenceManager2
 import app.lawnchair.ui.preferences.components.NavigationActionPreference
+import app.lawnchair.ui.preferences.components.controls.SwitchPreference
 import app.lawnchair.ui.preferences.components.layout.PreferenceGroup
 import app.lawnchair.ui.preferences.components.layout.PreferenceLayout
 import app.lawnchair.ui.preferences.navigation.HomeScreenFeed
@@ -32,6 +35,13 @@ fun FeedPreferences(
         backArrowVisible = true,
         modifier = modifier,
     ) {
+        // The same switch as in the home screen settings, so the feed can be turned off from here.
+        PreferenceGroup {
+            SwitchPreference(
+                adapter = preferenceManager2().enableFeed.getAdapter(),
+                label = stringResource(R.string.minus_one_enable),
+            )
+        }
         PreferenceGroup(heading = stringResource(R.string.feed_content_label)) {
             FeedWidgetsPreferenceItem()
             FeedSectionsPreferenceItem()
