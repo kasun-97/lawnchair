@@ -129,7 +129,8 @@ fun FeedContent(
     val state by repository.state.collectAsStateWithLifecycle()
     val prefs2 = preferenceManager2()
     val sources by prefs2.feedSources.asState()
-    val hasSources = sources.any { it.enabled }
+    val rssEnabled by prefs2.feedRssEnabled.asState()
+    val hasSources = rssEnabled && sources.any { it.enabled }
     val maxHeadlines by prefs2.feedMaxHeadlines.asState()
     val articles = remember(state.articles, maxHeadlines) { state.articles.take(maxHeadlines) }
     val showHeadlinesTitle by prefs2.feedHeadlinesShowTitle.asState()

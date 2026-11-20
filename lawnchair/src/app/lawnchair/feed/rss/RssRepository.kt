@@ -19,6 +19,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
@@ -66,7 +67,10 @@ class RssRepository private constructor(private val context: Context) {
         scope.launch {
             cache = withContext(Dispatchers.IO) { readCache() }
             _state.update { it.copy(articles = cache.articles, ready = true) }
-            prefs.feedSources.get().map { it.filter(FeedSource::enabled) }.distinctUntilChanged().collect(::onSourcesChanged)
+            // Switched off, RSS fetches nothing but keeps its headlines for when it is back on.
+            combine(prefs.feedRssEnabled.get(), prefs.feedSources.get()) { enabled, sources ->
+                if (enabled) sources.filter(FeedSource::enabled) else null
+            }.distinctUntilChanged().collect { sources -> if (sources != null) onSourcesChanged(sources) }
         }
     }
 
@@ -112,7 +116,11 @@ class RssRepository private constructor(private val context: Context) {
         }
     }
 
-    private fun enabledSources(): List<FeedSource> = prefs.feedSources.firstCached().filter { it.enabled }
+    private fun enabledSources(): List<FeedSource> = if (prefs.feedRssEnabled.firstCached()) {
+        prefs.feedSources.firstCached().filter { it.enabled }
+    } else {
+        emptyList()
+    }
 
     private suspend fun onSourcesChanged(sources: List<FeedSource>) {
         val ids = sources.map { it.id }.toSet()

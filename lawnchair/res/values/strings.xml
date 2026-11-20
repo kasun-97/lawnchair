@@ -182,6 +182,8 @@
     <string name="feed_headlines_max">Maximum headlines</string>
     <string name="feed_sources_label">RSS</string>
     <string name="feed_sources_list_label">Feeds</string>
+    <string name="feed_rss_enable">Show RSS headlines</string>
+    <string name="feed_rss_off">Off</string>
     <string name="feed_sources_description">Headlines from RSS feeds, shown in the built-in feed</string>
     <string name="feed_sources_add">Add feed</string>
     <string name="feed_sources_remove">Remove feed</string>

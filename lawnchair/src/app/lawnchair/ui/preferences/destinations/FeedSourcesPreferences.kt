@@ -45,6 +45,7 @@ import app.lawnchair.ui.preferences.components.controls.ListPreference
 import app.lawnchair.ui.preferences.components.controls.ListPreferenceEntry
 import app.lawnchair.ui.preferences.components.controls.SwitchPreference
 import app.lawnchair.ui.preferences.components.controls.TextPreference
+import app.lawnchair.ui.preferences.components.layout.ExpandAndShrink
 import app.lawnchair.ui.preferences.components.layout.PreferenceGroup
 import app.lawnchair.ui.preferences.components.layout.PreferenceLayout
 import app.lawnchair.ui.preferences.components.layout.PreferenceTemplate
@@ -63,14 +64,16 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 fun FeedSourcesPreferenceItem(
     modifier: Modifier = Modifier,
 ) {
-    val sources = preferenceManager2().feedSources.getAdapter().state.value.filter { it.enabled }
+    val prefs2 = preferenceManager2()
+    val rssEnabled = prefs2.feedRssEnabled.getAdapter().state.value
+    val sources = prefs2.feedSources.getAdapter().state.value.filter { it.enabled }
     NavigationActionPreference(
         label = stringResource(R.string.feed_sources_label),
         destination = HomeScreenFeedSources,
-        subtitle = if (sources.isEmpty()) {
-            stringResource(R.string.feed_sources_description)
-        } else {
-            sources.joinToString(", ") { it.title }
+        subtitle = when {
+            !rssEnabled -> stringResource(R.string.feed_rss_off)
+            sources.isEmpty() -> stringResource(R.string.feed_sources_description)
+            else -> sources.joinToString(", ") { it.title }
         },
         modifier = modifier,
     )
@@ -87,6 +90,7 @@ fun FeedSourcesPreferences(
     val prefs2 = preferenceManager2()
     val sourcesAdapter = prefs2.feedSources.getAdapter()
     val sources = sourcesAdapter.state.value
+    val rssEnabledAdapter = prefs2.feedRssEnabled.getAdapter()
     val showTitleAdapter = prefs2.feedHeadlinesShowTitle.getAdapter()
     val defaultTitle = stringResource(R.string.feed_headlines_title)
     val limitEntries = remember {
@@ -100,89 +104,100 @@ fun FeedSourcesPreferences(
         backArrowVisible = true,
         modifier = modifier,
     ) {
-        PreferenceGroup(heading = stringResource(R.string.feed_headlines_label)) {
+        PreferenceGroup {
             SwitchPreference(
-                adapter = showTitleAdapter,
-                label = stringResource(R.string.feed_widgets_show_title),
-            )
-            TextPreference(
-                adapter = prefs2.feedHeadlinesTitle.getAdapter(),
-                label = stringResource(R.string.feed_widgets_title),
-                enabled = showTitleAdapter.state.value,
-                // Left empty, the title is the default one.
-                description = { it.ifBlank { defaultTitle } },
-            )
-            ListPreference(
-                adapter = prefs2.feedMaxHeadlines.getAdapter(),
-                entries = limitEntries,
-                label = stringResource(R.string.feed_headlines_max),
+                adapter = rssEnabledAdapter,
+                label = stringResource(R.string.feed_rss_enable),
             )
         }
-
-        PreferenceGroup(
-            heading = stringResource(R.string.feed_sources_list_label),
-            description = stringResource(R.string.feed_sources_description),
-        ) {
-            PreferenceTemplate(
-                title = {
-                    Text(
-                        text = stringResource(R.string.feed_sources_add),
-                        color = MaterialTheme.colorScheme.onSurface,
+        // Switched off, the settings below are hidden; the feeds themselves are kept.
+        ExpandAndShrink(visible = rssEnabledAdapter.state.value) {
+            Column {
+                PreferenceGroup(heading = stringResource(R.string.feed_headlines_label)) {
+                    SwitchPreference(
+                        adapter = showTitleAdapter,
+                        label = stringResource(R.string.feed_widgets_show_title),
                     )
-                },
-                startWidget = { Icon(Icons.Rounded.Add, contentDescription = null) },
-                onClick = {
-                    haptics.playToken(MSDLToken.TAP_MEDIUM_EMPHASIS)
-                    bottomSheetHandler.show {
-                        AddFeedSourceSheet(
-                            existing = { sourcesAdapter.state.value },
-                            onAdd = { source -> sourcesAdapter.onChange(sourcesAdapter.state.value + source) },
-                            onDismiss = { bottomSheetHandler.hide() },
-                        )
-                    }
-                },
-            )
-            if (sources.isEmpty()) {
-                PreferenceTemplate(
-                    title = {},
-                    description = { Text(stringResource(R.string.feed_sources_empty)) },
-                )
-            }
-        }
+                    TextPreference(
+                        adapter = prefs2.feedHeadlinesTitle.getAdapter(),
+                        label = stringResource(R.string.feed_widgets_title),
+                        enabled = showTitleAdapter.state.value,
+                        // Left empty, the title is the default one.
+                        description = { it.ifBlank { defaultTitle } },
+                    )
+                    ListPreference(
+                        adapter = prefs2.feedMaxHeadlines.getAdapter(),
+                        entries = limitEntries,
+                        label = stringResource(R.string.feed_headlines_max),
+                    )
+                }
 
-        if (sources.isNotEmpty()) {
-            PreferenceGroup {
-                sources.forEach { source ->
-                    // Switched off, a feed stays in the list but its headlines leave the feed.
-                    val setEnabled = { enabled: Boolean ->
-                        haptics.playToken(if (enabled) MSDLToken.SWITCH_ON else MSDLToken.SWITCH_OFF)
-                        sourcesAdapter.onChange(
-                            sourcesAdapter.state.value.map { if (it.id == source.id) it.copy(enabled = enabled) else it },
-                        )
-                    }
+                PreferenceGroup(
+                    heading = stringResource(R.string.feed_sources_list_label),
+                    description = stringResource(R.string.feed_sources_description),
+                ) {
                     PreferenceTemplate(
-                        title = { Text(source.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        description = { Text(source.url, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        endWidget = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconButton(
-                                    onClick = {
-                                        haptics.playToken(MSDLToken.SUCCESS)
-                                        sourcesAdapter.onChange(sourcesAdapter.state.value.filterNot { it.id == source.id })
-                                    },
-                                    shapes = IconButtonDefaults.shapes(),
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.Delete,
-                                        contentDescription = stringResource(R.string.feed_sources_remove),
-                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    )
-                                }
-                                Switch(checked = source.enabled, onCheckedChange = setEnabled)
+                        title = {
+                            Text(
+                                text = stringResource(R.string.feed_sources_add),
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        },
+                        startWidget = { Icon(Icons.Rounded.Add, contentDescription = null) },
+                        onClick = {
+                            haptics.playToken(MSDLToken.TAP_MEDIUM_EMPHASIS)
+                            bottomSheetHandler.show {
+                                AddFeedSourceSheet(
+                                    existing = { sourcesAdapter.state.value },
+                                    onAdd = { source -> sourcesAdapter.onChange(sourcesAdapter.state.value + source) },
+                                    onDismiss = { bottomSheetHandler.hide() },
+                                )
                             }
                         },
-                        onClick = { setEnabled(!source.enabled) },
                     )
+                    if (sources.isEmpty()) {
+                        PreferenceTemplate(
+                            title = {},
+                            description = { Text(stringResource(R.string.feed_sources_empty)) },
+                        )
+                    }
+                }
+
+                if (sources.isNotEmpty()) {
+                    PreferenceGroup {
+                        sources.forEach { source ->
+                            // Switched off, a feed stays in the list but its headlines leave the feed.
+                            val setEnabled = { enabled: Boolean ->
+                                haptics.playToken(if (enabled) MSDLToken.SWITCH_ON else MSDLToken.SWITCH_OFF)
+                                sourcesAdapter.onChange(
+                                    sourcesAdapter.state.value.map { if (it.id == source.id) it.copy(enabled = enabled) else it },
+                                )
+                            }
+                            PreferenceTemplate(
+                                title = { Text(source.title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                description = { Text(source.url, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                endWidget = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        IconButton(
+                                            onClick = {
+                                                haptics.playToken(MSDLToken.SUCCESS)
+                                                sourcesAdapter.onChange(sourcesAdapter.state.value.filterNot { it.id == source.id })
+                                            },
+                                            shapes = IconButtonDefaults.shapes(),
+                                        ) {
+                                            Icon(
+                                                Icons.Rounded.Delete,
+                                                contentDescription = stringResource(R.string.feed_sources_remove),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                        Switch(checked = source.enabled, onCheckedChange = setEnabled)
+                                    }
+                                },
+                                onClick = { setEnabled(!source.enabled) },
+                            )
+                        }
+                    }
                 }
             }
         }

@@ -744,6 +744,12 @@ class PreferenceManager2 @Inject constructor(
         defaultValue = emptyList(),
     )
 
+    /** Whether the built-in feed shows RSS headlines at all; the feeds are kept while it is off. */
+    val feedRssEnabled = preference(
+        key = booleanPreferencesKey(name = "feed_rss_enabled"),
+        defaultValue = true,
+    )
+
     /** News sources of the built-in feed, in the order they were added. */
     val feedSources = serializablePreference<List<FeedSource>>(
         key = stringPreferencesKey("feed_sources"),
